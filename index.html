@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KUSK Market - ตลาดนัดมือสองโรงเรียน</title>
+    <meta name="description" content="KUSK Market - ตลาดนัดสินค้ามือสองสำหรับนักเรียน ซื้อขายง่าย ตรวจสอบโดยสภานักเรียน">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK (Compat Version for Vanilla JS) -->
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-database-compat.js"></script>
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div id="authScreen" class="screen active">
+        <div class="auth-container">
+            <div class="auth-logo">
+                <div class="logo-icon">
+                    <span class="material-icons-round">storefront</span>
+                </div>
+                <h1>KUSK <span>Market</span></h1>
+                <p class="auth-subtitle">ตลาดนัดมือสองโรงเรียน</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form">
+                <h2>เข้าสู่ระบบ</h2>
+                <div class="form-group">
+                    <label>ชื่อผู้ใช้</label>
+                    <input type="text" id="loginUsername" placeholder="กรอกชื่อผู้ใช้">
+                </div>
+                <div class="form-group">
+                    <label>รหัสผ่าน</label>
+                    <input type="password" id="loginPassword" placeholder="กรอกรหัสผ่าน">
+                </div>
+                <button class="btn btn-primary btn-full" onclick="handleLogin()">
+                    <span class="material-icons-round">login</span>
+                    เข้าสู่ระบบ
+                </button>
+                <p class="auth-switch">ยังไม่มีบัญชี? <a href="#" onclick="showRegister()">ลงทะเบียน</a></p>
+                <div class="auth-divider"><span>หรือ</span></div>
+                <button class="btn btn-outline btn-full" onclick="enterAsGuest()">
+                    <span class="material-icons-round">visibility</span>
+                    เข้าชมตลาดแบบผู้เยี่ยมชม
+                </button>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form" style="display:none;">
+                <h2>ลงทะเบียน</h2>
+                <div class="role-selector">
+                    <button class="role-btn active" data-role="buyer" onclick="selectRole('buyer')">
+                        <span class="material-icons-round">shopping_bag</span>
+                        ผู้ซื้อ
+                    </button>
+                    <button class="role-btn" data-role="seller" onclick="selectRole('seller')">
+                        <span class="material-icons-round">sell</span>
+                        ผู้ขาย
+                    </button>
+                    <button class="role-btn" data-role="council" onclick="selectRole('council')">
+                        <span class="material-icons-round">verified_user</span>
+                        สภา
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label>ชื่อ-นามสกุล</label>
+                    <input type="text" id="regName" placeholder="กรอกชื่อ-นามสกุล">
+                </div>
+                <div class="form-group">
+                    <label>ชื่อผู้ใช้</label>
+                    <input type="text" id="regUsername" placeholder="กรอกชื่อผู้ใช้สำหรับเข้าสู่ระบบ">
+                </div>
+                <div class="form-group">
+                    <label>รหัสผ่าน</label>
+                    <input type="password" id="regPassword" placeholder="กรอกรหัสผ่าน">
+                </div>
+
+                <div id="sellerFields" class="extra-fields" style="display:none;">
+                    <div class="form-group">
+                        <label>ระดับชั้น</label>
+                        <select id="regGrade">
+                            <option value="">เลือกระดับชั้น</option>
+                            <option value="ม.1">ม.1</option>
+                            <option value="ม.2">ม.2</option>
+                            <option value="ม.3">ม.3</option>
+                            <option value="ม.4">ม.4</option>
+                            <option value="ม.5">ม.5</option>
+                            <option value="ม.6">ม.6</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>รูปผู้ขาย</label>
+                        <div class="file-upload" onclick="document.getElementById('regSellerImage').click()">
+                            <span class="material-icons-round">add_a_photo</span>
+                            <span id="sellerImageLabel">เลือกรูปภาพ</span>
+                            <input type="file" id="regSellerImage" accept="image/*" style="display:none" onchange="previewImage(this, 'sellerImageLabel')">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="specialCodeField" class="extra-fields" style="display:none;">
+                    <div class="form-group">
+                        <label>รหัสเฉพาะ</label>
+                        <input type="text" id="regSpecialCode" placeholder="กรอกรหัสเฉพาะ">
+                        <small class="form-hint">ต้องใส่รหัสเฉพาะเพื่อลงทะเบียนบทบาทนี้</small>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-full" onclick="handleRegister()">
+                    <span class="material-icons-round">how_to_reg</span>
+                    ลงทะเบียน
+                </button>
+                <p class="auth-switch">มีบัญชีแล้ว? <a href="#" onclick="showLogin()">เข้าสู่ระบบ</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="screen">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="nav-brand" onclick="navigateTo('market')">
+                <span class="material-icons-round">storefront</span>
+                <span class="brand-text">KUSK <span>Market</span></span>
+            </div>
+            <div class="nav-links">
+                <button class="nav-link active" data-page="market" onclick="navigateTo('market')">
+                    <span class="material-icons-round">store</span>
+                    <span>ตลาด</span>
+                </button>
+                <button class="nav-link" data-page="seller" id="navSeller" style="display:none" onclick="navigateTo('seller')">
+                    <span class="material-icons-round">inventory_2</span>
+                    <span>โต๊ะของฉัน</span>
+                </button>
+                <button class="nav-link" data-page="council" id="navCouncil" style="display:none" onclick="navigateTo('council')">
+                    <span class="material-icons-round">fact_check</span>
+                    <span>ตรวจสอบ</span>
+                </button>
+            </div>
+            <div class="nav-user" id="navUser" onclick="openProfileModal()">
+                <div class="user-avatar" id="userAvatar">
+                    <span class="material-icons-round">person</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Market Page -->
+        <div id="marketPage" class="page active">
+            <div class="page-header">
+                <div class="page-title-area">
+                    <h1>🛍️ ตลาดนัด KUSK</h1>
+                    <p>สินค้ามือสองคุณภาพดี จากเพื่อนสู่เพื่อน</p>
+                </div>
+                <div class="market-stats" id="marketStats">
+                    <div class="stat-card">
+                        <span class="material-icons-round">inventory</span>
+                        <div>
+                            <span class="stat-number" id="statProducts">0</span>
+                            <span class="stat-label">สินค้า</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="material-icons-round">groups</span>
+                        <div>
+                            <span class="stat-number" id="statSellers">0</span>
+                            <span class="stat-label">ร้านค้า</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-bar">
+                <div class="search-box">
+                    <span class="material-icons-round">search</span>
+                    <input type="text" id="searchInput" placeholder="ค้นหาสินค้า..." oninput="filterProducts()">
+                </div>
+                <div class="filter-chips">
+                    <button class="chip active" data-category="all" onclick="filterByCategory('all', 'market')">ทั้งหมด</button>
+                    <button class="chip" data-category="clothing" onclick="filterByCategory('clothing', 'market')">👕 เสื้อผ้า</button>
+                    <button class="chip" data-category="books" onclick="filterByCategory('books', 'market')">📚 หนังสือ</button>
+                    <button class="chip" data-category="electronics" onclick="filterByCategory('electronics', 'market')">📱 อิเล็กทรอนิกส์</button>
+                    <button class="chip" data-category="stationery" onclick="filterByCategory('stationery', 'market')">✏️ เครื่องเขียน</button>
+                    <button class="chip" data-category="accessories" onclick="filterByCategory('accessories', 'market')">💍 เครื่องประดับ</button>
+                    <button class="chip" data-category="sports" onclick="filterByCategory('sports', 'market')">⚽ กีฬา</button>
+                    <button class="chip" data-category="toys" onclick="filterByCategory('toys', 'market')">🧸 ของเล่น</button>
+                    <button class="chip" data-category="others" onclick="filterByCategory('others', 'market')">📦 อื่นๆ</button>
+                </div>
+                <div class="price-filter">
+                    <label>ราคา:</label>
+                    <select id="priceFilter" onchange="filterProducts()">
+                        <option value="all">ทุกราคา</option>
+                        <option value="0-50">0 - 50 บาท</option>
+                        <option value="50-100">50 - 100 บาท</option>
+                        <option value="100-300">100 - 300 บาท</option>
+                        <option value="300-500">300 - 500 บาท</option>
+                        <option value="500+">500 บาทขึ้นไป</option>
+                    </select>
+                    <select id="sortFilter" onchange="filterProducts()">
+                        <option value="newest">ใหม่สุด</option>
+                        <option value="price-low">ราคาต่ำ-สูง</option>
+                        <option value="price-high">ราคาสูง-ต่ำ</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Products Grid -->
+            <div class="products-grid" id="marketProducts">
+                <div class="empty-state">
+                    <span class="material-icons-round">store</span>
+                    <h3>ยังไม่มีสินค้าในตลาด</h3>
+                    <p>รอสินค้าที่ผ่านการตรวจสอบจากสภานักเรียน</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seller Page -->
+        <div id="sellerPage" class="page">
+            <div class="page-header">
+                <div class="page-title-area">
+                    <h1>📦 โต๊ะของฉัน</h1>
+                    <p>จัดการสินค้าและดูสถานะการตรวจสอบ</p>
+                </div>
+
+            </div>
+
+            <div class="seller-dashboard-stats" id="sellerDashboardStats">
+                <div class="seller-stat-card">
+                    <div class="seller-stat-value" id="sStatTotal">0</div>
+                    <div class="seller-stat-label">ทั้งหมด</div>
+                </div>
+                <div class="seller-stat-card">
+                    <div class="seller-stat-value" id="sStatPending" style="color:var(--warning)">0</div>
+                    <div class="seller-stat-label">รอตรวจ</div>
+                </div>
+                <div class="seller-stat-card">
+                    <div class="seller-stat-value" id="sStatRevision" style="color:var(--danger)">0</div>
+                    <div class="seller-stat-label">ส่งแก้ไข</div>
+                </div>
+                <div class="seller-stat-card">
+                    <div class="seller-stat-value" id="sStatSelling" style="color:var(--secondary)">0</div>
+                    <div class="seller-stat-label">กำลังขาย</div>
+                </div>
+                <div class="seller-stat-card">
+                    <div class="seller-stat-value" id="sStatSold" style="color:var(--text-muted)">0</div>
+                    <div class="seller-stat-label">ขายแล้ว</div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-add-product" onclick="openAddProductModal()">
+                <span class="material-icons-round">add_circle</span>
+                เพิ่มสินค้าใหม่
+            </button>
+
+            <div class="seller-products-section">
+                <h2>สินค้าของฉัน</h2>
+                <div class="products-list" id="sellerProducts">
+                    <div class="empty-state">
+                        <span class="material-icons-round">inventory_2</span>
+                        <h3>ยังไม่มีสินค้า</h3>
+                        <p>กดปุ่ม "เพิ่มสินค้าใหม่" เพื่อลงทะเบียนสินค้า</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Council Page -->
+        <div id="councilPage" class="page">
+            <div class="page-header">
+                <div class="page-title-area">
+                    <h1>✅ ตรวจสอบสินค้า</h1>
+                    <p>ตรวจสอบและอนุมัติสินค้าก่อนขึ้นตลาด</p>
+                </div>
+                <div class="council-stats">
+                    <div class="stat-card warning">
+                        <span class="material-icons-round">pending_actions</span>
+                        <div>
+                            <span class="stat-number" id="statPending">0</span>
+                            <span class="stat-label">รอตรวจ</span>
+                        </div>
+                    </div>
+                    <div class="stat-card success">
+                        <span class="material-icons-round">check_circle</span>
+                        <div>
+                            <span class="stat-number" id="statApproved">0</span>
+                            <span class="stat-label">ผ่านแล้ว</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="council-tabs">
+                <button class="tab active" data-tab="pending" onclick="switchCouncilTab('pending')">
+                    <span class="material-icons-round">pending_actions</span>
+                    รอตรวจสอบ
+                    <span class="badge" id="pendingBadge">0</span>
+                </button>
+                <button class="tab" data-tab="revision" onclick="switchCouncilTab('revision')">
+                    <span class="material-icons-round">edit_note</span>
+                    ส่งแก้ไข
+                </button>
+                <button class="tab" data-tab="approved" onclick="switchCouncilTab('approved')">
+                    <span class="material-icons-round">check_circle</span>
+                    ผ่านแล้ว
+                </button>
+            </div>
+
+            <div class="council-filters">
+                <div class="filter-chips">
+                    <button class="chip active" data-category="all" onclick="filterByCategory('all', 'council')">ทั้งหมด</button>
+                    <button class="chip" data-category="clothing" onclick="filterByCategory('clothing', 'council')">👕 เสื้อผ้า</button>
+                    <button class="chip" data-category="books" onclick="filterByCategory('books', 'council')">📚 หนังสือ</button>
+                    <button class="chip" data-category="electronics" onclick="filterByCategory('electronics', 'council')">📱 อิเล็กทรอนิกส์</button>
+                    <button class="chip" data-category="stationery" onclick="filterByCategory('stationery', 'council')">✏️ เครื่องเขียน</button>
+                    <button class="chip" data-category="accessories" onclick="filterByCategory('accessories', 'council')">💍 เครื่องประดับ</button>
+                    <button class="chip" data-category="sports" onclick="filterByCategory('sports', 'council')">⚽ กีฬา</button>
+                    <button class="chip" data-category="toys" onclick="filterByCategory('toys', 'council')">🧸 ของเล่น</button>
+                    <button class="chip" data-category="others" onclick="filterByCategory('others', 'council')">📦 อื่นๆ</button>
+                </div>
+            </div>
+
+            <div class="council-products" id="councilProducts">
+                <div class="empty-state">
+                    <span class="material-icons-round">fact_check</span>
+                    <h3>ไม่มีสินค้ารอตรวจ</h3>
+                    <p>สินค้าใหม่จะปรากฏที่นี่เมื่อผู้ขายลงทะเบียน</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="productModal" class="modal">
+        <div class="modal-overlay" onclick="closeProductModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">เพิ่มสินค้าใหม่</h2>
+                <button class="btn-icon" onclick="closeProductModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editProductId">
+                <div class="form-group">
+                    <label>รูปสินค้า *</label>
+                    <div class="file-upload product-image-upload" onclick="document.getElementById('productImage').click()">
+                        <img id="productImagePreview" src="" style="display:none">
+                        <div id="productImagePlaceholder">
+                            <span class="material-icons-round">add_photo_alternate</span>
+                            <span>เลือกรูปสินค้า</span>
+                        </div>
+                        <input type="file" id="productImage" accept="image/*" style="display:none" onchange="previewProductImage(this)">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>ชื่อสินค้า *</label>
+                    <input type="text" id="productName" placeholder="เช่น เสื้อโปโลโรงเรียน ไซส์ M">
+                </div>
+                <div class="form-group">
+                    <label>ประเภทสินค้า *</label>
+                    <select id="productCategory">
+                        <option value="">เลือกประเภท</option>
+                        <option value="clothing">👕 เสื้อผ้า</option>
+                        <option value="books">📚 หนังสือ</option>
+                        <option value="electronics">📱 อิเล็กทรอนิกส์</option>
+                        <option value="stationery">✏️ เครื่องเขียน</option>
+                        <option value="accessories">💍 เครื่องประดับ</option>
+                        <option value="sports">⚽ กีฬา</option>
+                        <option value="toys">🧸 ของเล่น</option>
+                        <option value="others">📦 อื่นๆ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ราคา (บาท) *</label>
+                    <input type="number" id="productPrice" placeholder="0" min="0">
+                </div>
+                
+                <div class="form-group quantity-type-group">
+                    <label>ประเภทจำนวนสินค้า *</label>
+                    <div class="quantity-options">
+                        <label class="radio-label">
+                            <input type="radio" name="productQuantityType" value="single" checked onchange="toggleQuantityInput()"> ชิ้นเดียว
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="productQuantityType" value="multiple" onchange="toggleQuantityInput()"> หลายชิ้น
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group" id="quantityInputGroup" style="display:none;">
+                    <label>จำนวนชิ้น *</label>
+                    <input type="number" id="productQuantity" placeholder="1" min="1" value="1">
+                </div>
+
+                <div class="form-group">
+                    <label>รายละเอียด / ตำหนิ / สภาพสินค้า (ไม่บังคับ)</label>
+                    <textarea id="productDefects" placeholder="ระบุตำหนิหรือรายละเอียดเพิ่มเติม..."></textarea>
+                </div>
+                <div id="revisionNote" class="revision-note" style="display:none;">
+                    <span class="material-icons-round">warning</span>
+                    <div>
+                        <strong>หมายเหตุจากสภา:</strong>
+                        <p id="revisionNoteText"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeProductModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="saveProduct()">
+                    <span class="material-icons-round">save</span>
+                    บันทึก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Detail Modal -->
+    <div id="detailModal" class="modal">
+        <div class="modal-overlay" onclick="closeDetailModal()"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>รายละเอียดสินค้า</h2>
+                <button class="btn-icon" onclick="closeDetailModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body" id="detailModalBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- Council Review Modal -->
+    <div id="reviewModal" class="modal">
+        <div class="modal-overlay" onclick="closeReviewModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>ตรวจสอบสินค้า</h2>
+                <button class="btn-icon" onclick="closeReviewModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body" id="reviewModalBody">
+            </div>
+            <div class="modal-footer">
+                <input type="hidden" id="reviewProductId">
+                <div class="review-actions">
+                    <div class="form-group" id="revisionInputGroup" style="display:none;">
+                        <label>ระบุสิ่งที่ต้องแก้ไข</label>
+                        <textarea id="revisionInput" placeholder="ระบุรายละเอียดที่ต้องแก้ไข..."></textarea>
+                    </div>
+                    <div class="review-buttons">
+                        <button class="btn btn-warning" onclick="toggleRevisionInput()">
+                            <span class="material-icons-round">edit_note</span>
+                            ส่งแก้ไข
+                        </button>
+                        <button class="btn btn-success" onclick="approveProduct()">
+                            <span class="material-icons-round">check_circle</span>
+                            อนุมัติ
+                        </button>
+                    </div>
+                    <button class="btn btn-danger btn-full" id="sendRevisionBtn" style="display:none;" onclick="sendRevision()">
+                        <span class="material-icons-round">send</span>
+                        ส่งกลับแก้ไข
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seller Shop Modal -->
+    <div id="shopModal" class="modal">
+        <div class="modal-overlay" onclick="closeShopModal()"></div>
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="shopModalTitle">ร้านค้า</h2>
+                <button class="btn-icon" onclick="closeShopModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body" id="shopModalBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal">
+        <div class="modal-overlay" onclick="closeProfileModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>โปรไฟล์ของฉัน</h2>
+                <button class="btn-icon" onclick="closeProfileModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-header">
+                    <div class="profile-avatar-large" id="profileAvatarLarge">
+                        <span class="material-icons-round">person</span>
+                    </div>
+                    <div class="profile-info-large">
+                        <h3 id="profileNameLarge">ชื่อผู้ใช้</h3>
+                        <p id="profileRoleLarge" class="text-muted">บทบาท</p>
+                        <div id="profileTableBadge" class="table-badge" style="display:none;">รหัสโต๊ะ: <span id="profileTableIdText"></span></div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h4>เปลี่ยนรหัสผ่าน</h4>
+                    <div class="form-group">
+                        <input type="password" id="oldPassword" placeholder="รหัสผ่านเดิม">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="newPassword" placeholder="รหัสผ่านใหม่">
+                    </div>
+                    <button class="btn btn-outline btn-full" onclick="changePassword()">เปลี่ยนรหัสผ่าน</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger btn-full" onclick="handleLogout()">
+                    <span class="material-icons-round">logout</span>
+                    ออกจากระบบ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="material-icons-round" id="toastIcon">check_circle</span>
+        <span id="toastMessage"></span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
