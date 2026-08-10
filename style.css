@@ -1244,3 +1244,239 @@ body {
         flex: 1;
     }
 }
+
+/* --- Password Toggle & New Features Styling --- */
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.password-input-wrapper input {
+    padding-right: 2.75rem !important;
+}
+
+.btn-toggle-password {
+    position: absolute;
+    right: 0.75rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+    border-radius: var(--radius-full);
+    transition: var(--transition);
+}
+
+.btn-toggle-password:hover {
+    color: var(--primary);
+    background: var(--bg-main);
+}
+
+.form-warning-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px dashed var(--danger);
+    border-radius: var(--radius-md);
+    padding: 0.6rem 0.8rem;
+    font-size: 0.8rem;
+    color: var(--danger);
+    margin-top: 0.5rem;
+    line-height: 1.4;
+}
+
+.form-warning-notice .material-icons-round {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.25rem;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+/* Revenue Card in Seller Dashboard */
+.seller-stat-card.revenue-card {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(16, 185, 129, 0.08) 100%);
+    border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+/* Council Main Navigation & Sections */
+.council-main-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.council-nav-btn {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.6rem 1.2rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: var(--transition);
+}
+
+.council-nav-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.council-nav-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.council-section {
+    display: none;
+}
+
+.council-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Sellers & Report Tables */
+.sellers-table-container, .report-table-card {
+    background: var(--bg-surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.95rem;
+}
+
+.custom-table th, .custom-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.custom-table th {
+    background: var(--bg-main);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.custom-table tr:hover {
+    background: var(--bg-surface-hover);
+}
+
+.table-input {
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.85rem !important;
+    max-width: 100px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.status-badge-suspended {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.status-badge-active {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--secondary);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.report-controls {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Original price strike-through styles */
+.price-original-strikethrough {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    text-decoration: line-through;
+    margin-left: 0.4rem;
+    font-weight: normal;
+}
+
+/* Print styles for Report */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .print-hide {
+        display: none !important;
+    }
+    #reportContainer, #reportContainer * {
+        visibility: visible;
+    }
+    #reportContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        border: none;
+        box-shadow: none;
+    }
+    .custom-table th, .custom-table td {
+        padding: 0.5rem;
+        border: 1px solid #ccc;
+    }
+}
+

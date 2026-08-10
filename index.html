@@ -36,7 +36,12 @@
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่าน</label>
-                    <input type="password" id="loginPassword" placeholder="กรอกรหัสผ่าน">
+                    <div class="password-input-wrapper">
+                        <input type="password" id="loginPassword" placeholder="กรอกรหัสผ่าน">
+                        <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('loginPassword', 'loginPassIcon')">
+                            <span class="material-icons-round" id="loginPassIcon">visibility</span>
+                        </button>
+                    </div>
                 </div>
                 <button class="btn btn-primary btn-full" onclick="handleLogin()">
                     <span class="material-icons-round">login</span>
@@ -78,7 +83,12 @@
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่าน</label>
-                    <input type="password" id="regPassword" placeholder="กรอกรหัสผ่าน">
+                    <div class="password-input-wrapper">
+                        <input type="password" id="regPassword" placeholder="กรอกรหัสผ่าน">
+                        <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('regPassword', 'regPassIcon')">
+                            <span class="material-icons-round" id="regPassIcon">visibility</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="sellerFields" class="extra-fields" style="display:none;">
@@ -140,7 +150,7 @@
                 </button>
                 <button class="nav-link" data-page="council" id="navCouncil" style="display:none" onclick="navigateTo('council')">
                     <span class="material-icons-round">fact_check</span>
-                    <span>ตรวจสอบ</span>
+                    <span>สภานักเรียน</span>
                 </button>
             </div>
             <div class="nav-user" id="navUser" onclick="openProfileModal()">
@@ -155,7 +165,7 @@
             <div class="page-header">
                 <div class="page-title-area">
                     <h1>🛍️ ตลาดนัด KUSK</h1>
-                    <p>สินค้ามือสองคุณภาพดี จากเพื่อนสู่เพื่อน</p>
+                    <p>สินค้ามือสองคุณภาพดี จากเพื่อนสู่เพื่อน (วันเปิดตลาด 24, 25, 26 ส.ค. 2569)</p>
                 </div>
                 <div class="market-stats" id="marketStats">
                     <div class="stat-card">
@@ -193,14 +203,20 @@
                     <button class="chip" data-category="others" onclick="filterByCategory('others', 'market')">📦 อื่นๆ</button>
                 </div>
                 <div class="price-filter">
+                    <label>วันที่ขาย:</label>
+                    <select id="dateFilter" onchange="filterProducts()">
+                        <option value="all">ทุกวัน (24-26 ส.ค.)</option>
+                        <option value="24">24 ส.ค. 2569</option>
+                        <option value="25">25 ส.ค. 2569</option>
+                        <option value="26">26 ส.ค. 2569</option>
+                    </select>
                     <label>ราคา:</label>
                     <select id="priceFilter" onchange="filterProducts()">
                         <option value="all">ทุกราคา</option>
                         <option value="0-50">0 - 50 บาท</option>
                         <option value="50-100">50 - 100 บาท</option>
                         <option value="100-300">100 - 300 บาท</option>
-                        <option value="300-500">300 - 500 บาท</option>
-                        <option value="500+">500 บาทขึ้นไป</option>
+                        <option value="300-400">300 - 400 บาท</option>
                     </select>
                     <select id="sortFilter" onchange="filterProducts()">
                         <option value="newest">ใหม่สุด</option>
@@ -227,10 +243,13 @@
                     <h1>📦 โต๊ะของฉัน</h1>
                     <p>จัดการสินค้าและดูสถานะการตรวจสอบ</p>
                 </div>
-
             </div>
 
             <div class="seller-dashboard-stats" id="sellerDashboardStats">
+                <div class="seller-stat-card revenue-card">
+                    <div class="seller-stat-value" id="sStatRevenue" style="color:var(--primary); font-size:1.6rem; font-weight:800;">฿0</div>
+                    <div class="seller-stat-label">ยอดขายรวม (รายรับ)</div>
+                </div>
                 <div class="seller-stat-card">
                     <div class="seller-stat-value" id="sStatTotal">0</div>
                     <div class="seller-stat-label">ทั้งหมด</div>
@@ -274,8 +293,8 @@
         <div id="councilPage" class="page">
             <div class="page-header">
                 <div class="page-title-area">
-                    <h1>✅ ตรวจสอบสินค้า</h1>
-                    <p>ตรวจสอบและอนุมัติสินค้าก่อนขึ้นตลาด</p>
+                    <h1>✅ แผงควบคุมสภานักเรียน</h1>
+                    <p>ตรวจสอบสินค้า จัดการรหัสโต๊ะ/ผู้ขาย และออกรายงานประจำวัน</p>
                 </div>
                 <div class="council-stats">
                     <div class="stat-card warning">
@@ -295,41 +314,103 @@
                 </div>
             </div>
 
-            <div class="council-tabs">
-                <button class="tab active" data-tab="pending" onclick="switchCouncilTab('pending')">
-                    <span class="material-icons-round">pending_actions</span>
-                    รอตรวจสอบ
-                    <span class="badge" id="pendingBadge">0</span>
+            <!-- Council Navigation Tabs -->
+            <div class="council-main-nav">
+                <button class="council-nav-btn active" data-sec="products" onclick="switchCouncilSection('products')">
+                    <span class="material-icons-round">fact_check</span> ตรวจสอบสินค้า
                 </button>
-                <button class="tab" data-tab="revision" onclick="switchCouncilTab('revision')">
-                    <span class="material-icons-round">edit_note</span>
-                    ส่งแก้ไข
+                <button class="council-nav-btn" data-sec="sellers" onclick="switchCouncilSection('sellers')">
+                    <span class="material-icons-round">groups</span> จัดการพ่อค้า/แม่ค้า
                 </button>
-                <button class="tab" data-tab="approved" onclick="switchCouncilTab('approved')">
-                    <span class="material-icons-round">check_circle</span>
-                    ผ่านแล้ว
+                <button class="council-nav-btn" data-sec="report" onclick="switchCouncilSection('report')">
+                    <span class="material-icons-round">summarize</span> ตารางสินค้าประจำวัน
                 </button>
             </div>
 
-            <div class="council-filters">
-                <div class="filter-chips">
-                    <button class="chip active" data-category="all" onclick="filterByCategory('all', 'council')">ทั้งหมด</button>
-                    <button class="chip" data-category="clothing" onclick="filterByCategory('clothing', 'council')">👕 เสื้อผ้า</button>
-                    <button class="chip" data-category="books" onclick="filterByCategory('books', 'council')">📚 หนังสือ</button>
-                    <button class="chip" data-category="electronics" onclick="filterByCategory('electronics', 'council')">📱 อิเล็กทรอนิกส์</button>
-                    <button class="chip" data-category="stationery" onclick="filterByCategory('stationery', 'council')">✏️ เครื่องเขียน</button>
-                    <button class="chip" data-category="accessories" onclick="filterByCategory('accessories', 'council')">💍 เครื่องประดับ</button>
-                    <button class="chip" data-category="sports" onclick="filterByCategory('sports', 'council')">⚽ กีฬา</button>
-                    <button class="chip" data-category="toys" onclick="filterByCategory('toys', 'council')">🧸 ของเล่น</button>
-                    <button class="chip" data-category="others" onclick="filterByCategory('others', 'council')">📦 อื่นๆ</button>
+            <!-- Section 1: Product Reviews -->
+            <div id="councilSectionProducts" class="council-section active">
+                <div class="council-tabs">
+                    <button class="tab active" data-tab="pending" onclick="switchCouncilTab('pending')">
+                        <span class="material-icons-round">pending_actions</span>
+                        รอตรวจสอบ
+                        <span class="badge" id="pendingBadge">0</span>
+                    </button>
+                    <button class="tab" data-tab="revision" onclick="switchCouncilTab('revision')">
+                        <span class="material-icons-round">edit_note</span>
+                        ส่งแก้ไข
+                    </button>
+                    <button class="tab" data-tab="approved" onclick="switchCouncilTab('approved')">
+                        <span class="material-icons-round">check_circle</span>
+                        ผ่านแล้ว
+                    </button>
+                </div>
+
+                <div class="council-filters">
+                    <div class="filter-chips">
+                        <button class="chip active" data-category="all" onclick="filterByCategory('all', 'council')">ทั้งหมด</button>
+                        <button class="chip" data-category="clothing" onclick="filterByCategory('clothing', 'council')">👕 เสื้อผ้า</button>
+                        <button class="chip" data-category="books" onclick="filterByCategory('books', 'council')">📚 หนังสือ</button>
+                        <button class="chip" data-category="electronics" onclick="filterByCategory('electronics', 'council')">📱 อิเล็กทรอนิกส์</button>
+                        <button class="chip" data-category="stationery" onclick="filterByCategory('stationery', 'council')">✏️ เครื่องเขียน</button>
+                        <button class="chip" data-category="accessories" onclick="filterByCategory('accessories', 'council')">💍 เครื่องประดับ</button>
+                        <button class="chip" data-category="sports" onclick="filterByCategory('sports', 'council')">⚽ กีฬา</button>
+                        <button class="chip" data-category="toys" onclick="filterByCategory('toys', 'council')">🧸 ของเล่น</button>
+                        <button class="chip" data-category="others" onclick="filterByCategory('others', 'council')">📦 อื่นๆ</button>
+                    </div>
+                </div>
+
+                <div class="council-products" id="councilProducts">
+                    <div class="empty-state">
+                        <span class="material-icons-round">fact_check</span>
+                        <h3>ไม่มีสินค้ารอตรวจ</h3>
+                        <p>สินค้าใหม่จะปรากฏที่นี่เมื่อผู้ขายลงทะเบียน</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="council-products" id="councilProducts">
-                <div class="empty-state">
-                    <span class="material-icons-round">fact_check</span>
-                    <h3>ไม่มีสินค้ารอตรวจ</h3>
-                    <p>สินค้าใหม่จะปรากฏที่นี่เมื่อผู้ขายลงทะเบียน</p>
+            <!-- Section 2: Seller Management -->
+            <div id="councilSectionSellers" class="council-section" style="display:none;">
+                <div class="section-header">
+                    <h2>รายชื่อพ่อค้า/แม่ค้าในระบบ</h2>
+                    <p>กำหนดรหัสโต๊ะ และระงับ/ยกเลิกระงับบัญชีผู้ขายชั่วคราว</p>
+                </div>
+                <div class="search-box" style="margin: 1rem 0;">
+                    <span class="material-icons-round">search</span>
+                    <input type="text" id="sellerSearchInput" placeholder="ค้นหาตามชื่อผู้ขาย หรือชื่อผู้ใช้..." oninput="renderCouncilSellers()">
+                </div>
+                <div id="councilSellersList" class="sellers-table-container">
+                    <!-- Sellers table renders here -->
+                </div>
+            </div>
+
+            <!-- Section 3: Daily Product Report -->
+            <div id="councilSectionReport" class="council-section" style="display:none;">
+                <div class="section-header print-hide">
+                    <h2>ตารางสินค้าที่จะขายประจำวัน</h2>
+                    <p>ดึงข้อมูลตารางสินค้าที่จะขายในวันที่ระบุ เพื่อตรวจสอบหรือพิมพ์แจก</p>
+                </div>
+
+                <div class="report-controls print-hide">
+                    <div class="form-group" style="margin-bottom:0; max-width:250px;">
+                        <label>เลือกวันที่ขาย:</label>
+                        <select id="reportDateSelect" onchange="renderDailyReport()">
+                            <option value="24">24 สิงหาคม 2569</option>
+                            <option value="25">25 สิงหาคม 2569</option>
+                            <option value="26">26 สิงหาคม 2569</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; margin-top: auto;">
+                        <button class="btn btn-outline" onclick="copyReportTable()">
+                            <span class="material-icons-round">content_copy</span> คัดลอกตาราง
+                        </button>
+                        <button class="btn btn-primary" onclick="window.print()">
+                            <span class="material-icons-round">print</span> พิมพ์ตาราง (PDF)
+                        </button>
+                    </div>
+                </div>
+
+                <div id="reportContainer" class="report-table-card">
+                    <!-- Report renders here -->
                 </div>
             </div>
         </div>
@@ -376,9 +457,34 @@
                         <option value="others">📦 อื่นๆ</option>
                     </select>
                 </div>
+                
                 <div class="form-group">
-                    <label>ราคา (บาท) *</label>
-                    <input type="number" id="productPrice" placeholder="0" min="0">
+                    <label>วันที่นำสินค้ามาวางขาย * (เลือกได้มากกว่า 1 วัน)</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="product-sell-date" value="24" checked> 24 ส.ค. 2569
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="product-sell-date" value="25" checked> 25 ส.ค. 2569
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="product-sell-date" value="26" checked> 26 ส.ค. 2569
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>ราคาเดิม / ราคาเต็มมือหนึ่งหรือซื้อใหม่ (บาท) *</label>
+                    <input type="number" id="productOriginalPrice" placeholder="เช่น 350" min="1">
+                </div>
+
+                <div class="form-group">
+                    <label>ราคาขายจริง (บาท) * <span style="color:var(--danger); font-size:0.85rem;">(ต้องไม่เกิน 400 บาท และต้องน้อยกว่าราคาเดิม)</span></label>
+                    <input type="number" id="productPrice" placeholder="เช่น 200" min="1" max="400">
+                    <div class="form-warning-notice">
+                        <span class="material-icons-round">warning</span>
+                        <span>กรุณากรอกราคาจริงเท่านั้น การแจ้งราคาเท็จจะส่งผลให้ถูกตัดคะแนนความประพฤติ</span>
+                    </div>
                 </div>
                 
                 <div class="form-group quantity-type-group">
@@ -506,17 +612,27 @@
                     <div class="profile-info-large">
                         <h3 id="profileNameLarge">ชื่อผู้ใช้</h3>
                         <p id="profileRoleLarge" class="text-muted">บทบาท</p>
-                        <div id="profileTableBadge" class="table-badge" style="display:none;">รหัสโต๊ะ: <span id="profileTableIdText"></span></div>
+                        <div id="profileTableBadge" class="table-badge" style="display:none;">รหัสโต๊ะ: <span id="profileTableIdText">ยังไม่กำหนด</span></div>
                     </div>
                 </div>
 
                 <div class="profile-section">
                     <h4>เปลี่ยนรหัสผ่าน</h4>
                     <div class="form-group">
-                        <input type="password" id="oldPassword" placeholder="รหัสผ่านเดิม">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="oldPassword" placeholder="รหัสผ่านเดิม">
+                            <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('oldPassword', 'oldPassIcon')">
+                                <span class="material-icons-round" id="oldPassIcon">visibility</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <input type="password" id="newPassword" placeholder="รหัสผ่านใหม่">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="newPassword" placeholder="รหัสผ่านใหม่">
+                            <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('newPassword', 'newPassIcon')">
+                                <span class="material-icons-round" id="newPassIcon">visibility</span>
+                            </button>
+                        </div>
                     </div>
                     <button class="btn btn-outline btn-full" onclick="changePassword()">เปลี่ยนรหัสผ่าน</button>
                 </div>

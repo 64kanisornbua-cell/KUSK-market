@@ -27,8 +27,23 @@ let state = {
     currentCategory: 'all',
     currentCategoryCouncil: 'all',
     searchQuery: '',
-    currentTab: 'pending' 
+    currentTab: 'pending',
+    currentCouncilSection: 'products'
 };
+
+// --- Password Visibility Toggle ---
+function togglePasswordVisibility(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (!input || !icon) return;
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.innerText = 'visibility_off';
+    } else {
+        input.type = 'password';
+        icon.innerText = 'visibility';
+    }
+}
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,9 +59,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if(state.currentUser && state.currentUser.role !== 'guest') {
             const updatedUser = state.users.find(u => u.id === state.currentUser.id);
             if(updatedUser) {
+                // If user has been suspended while using the app
+                if (updatedUser.suspended) {
+                    showToast('บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อสภานักเรียน', 'error');
+                    handleLogout();
+                    return;
+                }
                 state.currentUser = updatedUser;
                 saveLocalUser();
             }
+        }
+        if (state.currentCouncilSection === 'sellers') {
+            renderCouncilSellers();
         }
     });
 
@@ -55,10 +79,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = snapshot.val();
         state.products = data ? Object.values(data) : [];
         renderCurrentPage();
+        if (state.currentCouncilSection === 'report') {
+            renderDailyReport();
+        }
     });
 
     if (state.currentUser) {
-        initApp();
+        if (state.currentUser.suspended) {
+            showToast('บัญชีของคุณถูกระงับชั่วคราว', 'error');
+            handleLogout();
+        } else {
+            initApp();
+        }
     } else {
         document.getElementById('authScreen').classList.add('active');
     }
@@ -70,7 +102,11 @@ function renderCurrentPage() {
     const pageId = activePage.id;
     if (pageId === 'marketPage') renderMarket();
     if (pageId === 'sellerPage') renderSellerProducts();
-    if (pageId === 'councilPage') renderCouncilProducts();
+    if (pageId === 'councilPage') {
+        if (state.currentCouncilSection === 'products') renderCouncilProducts();
+        if (state.currentCouncilSection === 'sellers') renderCouncilSellers();
+        if (state.currentCouncilSection === 'report') renderDailyReport();
+    }
 }
 
 function saveLocalUser() {
@@ -174,7 +210,8 @@ function handleRegister() {
         name,
         username,
         password,
-        role
+        role,
+        suspended: false
     };
 
     if (role === 'seller' || role === 'council') {
@@ -193,10 +230,8 @@ function handleRegister() {
         }
         newUser.grade = grade;
         newUser.image = tempSellerImage || 'https://via.placeholder.com/150';
-        
-        // Generate Table ID
-        const sellerCount = state.users.filter(u => u.role === 'seller').length;
-        newUser.tableId = 'T-' + String(sellerCount + 1).padStart(2, '0');
+        // Table ID is not assigned automatically; assigned later by Council
+        newUser.tableId = '';
     }
 
     // Save to Firebase
@@ -216,6 +251,10 @@ function handleLogin() {
     const user = state.users.find(u => u.username === username && u.password === password);
 
     if (user) {
+        if (user.suspended) {
+            showToast('บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อสภานักเรียน', 'error');
+            return;
+        }
         state.currentUser = user;
         saveLocalUser();
         initApp();
@@ -299,7 +338,8 @@ function initApp() {
 function navigateTo(pageId) {
     // Update Nav
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-    document.querySelector(`.nav-link[data-page="${pageId}"]`).classList.add('active');
+    const targetLink = document.querySelector(`.nav-link[data-page="${pageId}"]`);
+    if(targetLink) targetLink.classList.add('active');
 
     // Update Pages
     document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
@@ -322,6 +362,9 @@ function showToast(message, type = 'success') {
     if (type === 'error') {
         toast.classList.add('error');
         icon.innerText = 'error';
+    } else if (type === 'warning') {
+        toast.classList.add('warning');
+        icon.innerText = 'warning';
     } else {
         icon.innerText = 'check_circle';
     }
@@ -331,7 +374,7 @@ function showToast(message, type = 'success') {
 
     setTimeout(() => {
         toast.classList.remove('show');
-    }, 3000);
+    }, 3500);
 }
 
 function formatPrice(price) {
@@ -360,6 +403,11 @@ function getStatusBadge(status) {
         case 'sold': return '<span class="list-item-status status-sold"><span class="material-icons-round" style="font-size:14px">shopping_bag</span>ขายแล้ว</span>';
         default: return '';
     }
+}
+
+function formatSellDates(dates) {
+    if (!dates || !Array.isArray(dates) || dates.length === 0) return '24, 25, 26 ส.ค.';
+    return dates.map(d => `${d} ส.ค.`).join(', ');
 }
 
 // --- Product Management (Seller) ---
@@ -396,8 +444,10 @@ function openAddProductModal(productId = null) {
     document.getElementById('productImagePlaceholder').style.display = 'flex';
     document.getElementById('productName').value = '';
     document.getElementById('productCategory').value = '';
+    document.getElementById('productOriginalPrice').value = '';
     document.getElementById('productPrice').value = '';
     document.getElementById('productDefects').value = '';
+    document.querySelectorAll('.product-sell-date').forEach(cb => cb.checked = true);
     document.querySelector('input[name="productQuantityType"][value="single"]').checked = true;
     document.getElementById('productQuantity').value = '1';
     toggleQuantityInput();
@@ -418,9 +468,17 @@ function openAddProductModal(productId = null) {
 
             document.getElementById('productName').value = product.name;
             document.getElementById('productCategory').value = product.category;
+            document.getElementById('productOriginalPrice').value = product.originalPrice || '';
             document.getElementById('productPrice').value = product.price;
             document.getElementById('productDefects').value = product.defects || '';
             
+            // Set sell dates
+            if (product.sellDates && Array.isArray(product.sellDates)) {
+                document.querySelectorAll('.product-sell-date').forEach(cb => {
+                    cb.checked = product.sellDates.includes(cb.value);
+                });
+            }
+
             if (product.quantityType === 'multiple') {
                 document.querySelector('input[name="productQuantityType"][value="multiple"]').checked = true;
                 document.getElementById('productQuantity').value = product.quantity || 1;
@@ -447,15 +505,36 @@ function closeProductModal() {
 
 function saveProduct() {
     const id = document.getElementById('editProductId').value;
-    const name = document.getElementById('productName').value;
+    const name = document.getElementById('productName').value.trim();
     const category = document.getElementById('productCategory').value;
+    const originalPrice = parseInt(document.getElementById('productOriginalPrice').value);
     const price = parseInt(document.getElementById('productPrice').value);
-    const defects = document.getElementById('productDefects').value;
+    const defects = document.getElementById('productDefects').value.trim();
     const quantityType = document.querySelector('input[name="productQuantityType"]:checked').value;
     const quantity = quantityType === 'multiple' ? parseInt(document.getElementById('productQuantity').value) : 1;
 
-    if (!tempProductImage || !name || !category || isNaN(price) || (quantityType === 'multiple' && (isNaN(quantity) || quantity < 1))) {
+    // Get checked sell dates
+    const sellDates = Array.from(document.querySelectorAll('.product-sell-date:checked')).map(cb => cb.value);
+
+    // Validation
+    if (!tempProductImage || !name || !category || isNaN(price) || isNaN(originalPrice) || (quantityType === 'multiple' && (isNaN(quantity) || quantity < 1))) {
         showToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วนและใส่รูปภาพ', 'error');
+        return;
+    }
+
+    if (sellDates.length === 0) {
+        showToast('กรุณาเลือกวันที่นำสินค้ามาขายอย่างน้อย 1 วัน', 'error');
+        return;
+    }
+
+    // Price rules validation
+    if (price > 400) {
+        showToast('ราคาขายจริงต้องไม่เกิน 400 บาทเท่านั้น', 'error');
+        return;
+    }
+
+    if (price >= originalPrice) {
+        showToast('ราคาขายจริงต้องน้อยกว่าราคาเดิม (ไม่สามารถเท่ากับหรือแพงกว่าได้)', 'error');
         return;
     }
 
@@ -466,7 +545,7 @@ function saveProduct() {
         if (index > -1) {
             productData = {
                 ...state.products[index],
-                name, category, price, defects, quantityType, quantity,
+                name, category, price, originalPrice, sellDates, defects, quantityType, quantity,
                 image: tempProductImage,
                 status: 'pending', // Reset to pending after edit
                 revisionNote: null,
@@ -478,7 +557,7 @@ function saveProduct() {
         productData = {
             id: 'P' + Date.now(),
             sellerId: state.currentUser.id,
-            name, category, price, defects, quantityType, quantity,
+            name, category, price, originalPrice, sellDates, defects, quantityType, quantity,
             image: tempProductImage,
             status: 'pending',
             createdAt: new Date().toISOString()
@@ -522,12 +601,17 @@ function renderSellerProducts() {
     const container = document.getElementById('sellerProducts');
     const myProducts = state.products.filter(p => p.sellerId === state.currentUser.id);
     
+    // Calculate total revenue from sold products
+    const soldProducts = myProducts.filter(p => p.status === 'sold');
+    const totalRevenue = soldProducts.reduce((sum, p) => sum + (p.price * (p.quantityType === 'multiple' ? (p.quantity || 1) : 1)), 0);
+    document.getElementById('sStatRevenue').innerText = '฿' + formatPrice(totalRevenue);
+
     // Update Dashboard Stats
     document.getElementById('sStatTotal').innerText = myProducts.length;
     document.getElementById('sStatPending').innerText = myProducts.filter(p => p.status === 'pending').length;
     document.getElementById('sStatRevision').innerText = myProducts.filter(p => p.status === 'revision').length;
     document.getElementById('sStatSelling').innerText = myProducts.filter(p => p.status === 'approved').length;
-    document.getElementById('sStatSold').innerText = myProducts.filter(p => p.status === 'sold').length;
+    document.getElementById('sStatSold').innerText = soldProducts.length;
 
     // Sort: pending/revision first, then approved, then sold
     myProducts.sort((a, b) => {
@@ -551,7 +635,11 @@ function renderSellerProducts() {
             <img src="${p.image}" class="list-item-img" alt="${p.name}">
             <div class="list-item-info">
                 <div class="list-item-title">${p.name} ${p.quantityType === 'multiple' ? `<small class="text-muted">(มี ${p.quantity} ชิ้น)</small>` : ''}</div>
-                <div class="list-item-price">฿${formatPrice(p.price)}</div>
+                <div class="list-item-price">
+                    ฿${formatPrice(p.price)}
+                    ${p.originalPrice ? `<span class="price-original-strikethrough">฿${formatPrice(p.originalPrice)}</span>` : ''}
+                </div>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">📅 วันขาย: ${formatSellDates(p.sellDates)}</div>
                 ${getStatusBadge(p.status)}
             </div>
             <div class="list-item-actions">
@@ -576,7 +664,27 @@ function renderSellerProducts() {
 }
 
 
-// --- Council Review ---
+// --- Council Sections & Review ---
+
+function switchCouncilSection(sectionId) {
+    state.currentCouncilSection = sectionId;
+    
+    document.querySelectorAll('.council-nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.council-nav-btn[data-sec="${sectionId}"]`).classList.add('active');
+
+    document.querySelectorAll('.council-section').forEach(sec => sec.style.display = 'none');
+    
+    if (sectionId === 'products') {
+        document.getElementById('councilSectionProducts').style.display = 'block';
+        renderCouncilProducts();
+    } else if (sectionId === 'sellers') {
+        document.getElementById('councilSectionSellers').style.display = 'block';
+        renderCouncilSellers();
+    } else if (sectionId === 'report') {
+        document.getElementById('councilSectionReport').style.display = 'block';
+        renderDailyReport();
+    }
+}
 
 function switchCouncilTab(tab) {
     state.currentTab = tab;
@@ -615,6 +723,7 @@ function renderCouncilProducts() {
 
     container.innerHTML = productsToShow.map(p => {
         const seller = state.users.find(u => u.id === p.sellerId);
+        const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
         return `
             <div class="product-card" onclick="openReviewModal('${p.id}')">
                 <div class="product-image">
@@ -625,9 +734,12 @@ function renderCouncilProducts() {
                 </div>
                 <div class="product-info">
                     <div class="product-title">${p.name} ${p.quantityType === 'multiple' ? `<small class="text-muted">(มี ${p.quantity} ชิ้น)</small>` : ''}</div>
-                    <div class="product-price">฿${formatPrice(p.price)}</div>
+                    <div class="product-price">
+                        ฿${formatPrice(p.price)}
+                        ${p.originalPrice ? `<span class="price-original-strikethrough">฿${formatPrice(p.originalPrice)}</span>` : ''}
+                    </div>
                     <div class="product-meta">
-                        <span class="material-icons-round">storefront</span> โต๊ะ ${seller ? seller.tableId : '-'}
+                        <span class="material-icons-round">storefront</span> โต๊ะ ${tableIdText}
                         <span style="margin-left:auto">${getCategoryName(p.category).split(' ')[1]}</span>
                     </div>
                 </div>
@@ -645,6 +757,8 @@ function openReviewModal(productId) {
     document.getElementById('reviewProductId').value = productId;
     
     const body = document.getElementById('reviewModalBody');
+    const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนดรหัสโต๊ะ';
+
     body.innerHTML = `
         <div class="detail-layout">
             <div class="detail-image">
@@ -652,23 +766,26 @@ function openReviewModal(productId) {
             </div>
             <div class="detail-info">
                 <h3>${product.name}</h3>
-                <div class="detail-price">฿${formatPrice(product.price)}</div>
+                <div class="detail-price">
+                    ฿${formatPrice(product.price)}
+                    ${product.originalPrice ? `<span class="price-original-strikethrough" style="font-size:1.1rem">฿${formatPrice(product.originalPrice)}</span>` : ''}
+                </div>
                 
                 <div class="detail-section">
-                    <h4>ประเภท</h4>
-                    <p>${getCategoryName(product.category)}</p>
+                    <h4>ประเภทสินค้า & วันที่วางขาย</h4>
+                    <p>${getCategoryName(product.category)} | 📅 ${formatSellDates(product.sellDates)}</p>
                 </div>
                 
                 <div class="detail-section">
                     <h4>ตำหนิ / สภาพ</h4>
-                    <p>${product.defects}</p>
+                    <p>${product.defects || 'ไม่มี'}</p>
                 </div>
 
                 <div class="seller-profile-card">
-                    <img src="${seller.image || 'https://via.placeholder.com/50'}" alt="Seller">
+                    <img src="${seller ? (seller.image || 'https://via.placeholder.com/50') : 'https://via.placeholder.com/50'}" alt="Seller">
                     <div class="seller-profile-info">
-                        <strong>ผู้ขาย: ${seller.name} (${seller.grade})</strong>
-                        <span>รหัสโต๊ะ: ${seller.tableId}</span>
+                        <strong>ผู้ขาย: ${seller ? seller.name : 'ไม่พบข้อมูล'} (${seller ? seller.grade : '-'})</strong>
+                        <span>รหัสโต๊ะ: ${tableIdText}</span>
                     </div>
                 </div>
                 
@@ -776,6 +893,202 @@ function cancelApproval() {
     }
 }
 
+// --- Council Seller Management & Table ID Assignment ---
+
+function renderCouncilSellers() {
+    const container = document.getElementById('councilSellersList');
+    if(!container) return;
+
+    const query = (document.getElementById('sellerSearchInput')?.value || '').toLowerCase();
+    
+    let sellers = state.users.filter(u => u.role === 'seller');
+    if (query) {
+        sellers = sellers.filter(s => s.name.toLowerCase().includes(query) || s.username.toLowerCase().includes(query) || (s.tableId && s.tableId.toLowerCase().includes(query)));
+    }
+
+    if (sellers.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="material-icons-round">group_off</span>
+                <h3>ไม่พบผู้ขายในระบบ</h3>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>ผู้ขาย</th>
+                    <th>ระดับชั้น</th>
+                    <th>ชื่อผู้ใช้</th>
+                    <th>รหัสโต๊ะ (สภากำหนด)</th>
+                    <th>สถานะบัญชี</th>
+                    <th>การจัดการ</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sellers.map(s => `
+                    <tr>
+                        <td style="display:flex; align-items:center; gap:0.5rem;">
+                            <img src="${s.image || 'https://via.placeholder.com/40'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+                            <strong>${s.name}</strong>
+                        </td>
+                        <td>${s.grade || '-'}</td>
+                        <td><code>${s.username}</code></td>
+                        <td>
+                            <div style="display:flex; gap:0.25rem;">
+                                <input type="text" id="tableIdInput_${s.id}" value="${s.tableId || ''}" placeholder="เช่น T-01" class="table-input">
+                                <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="saveSellerTableId('${s.id}')">
+                                    บันทึก
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            ${s.suspended ? 
+                                `<span class="status-badge-suspended"><span class="material-icons-round" style="font-size:14px">block</span>ถูกระงับ</span>` : 
+                                `<span class="status-badge-active"><span class="material-icons-round" style="font-size:14px">check_circle</span>ปกติ</span>`
+                            }
+                        </td>
+                        <td>
+                            ${s.suspended ? 
+                                `<button class="btn btn-success" style="padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="toggleSuspendSeller('${s.id}', false)">
+                                    <span class="material-icons-round">check</span> ปลดระงับ
+                                 </button>` : 
+                                `<button class="btn btn-danger" style="padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="toggleSuspendSeller('${s.id}', true)">
+                                    <span class="material-icons-round">block</span> ระงับบัญชี
+                                 </button>`
+                            }
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function saveSellerTableId(sellerId) {
+    const input = document.getElementById(`tableIdInput_${sellerId}`);
+    if (!input) return;
+    const newTableId = input.value.trim();
+
+    db.ref('users/' + sellerId).update({ tableId: newTableId }).then(() => {
+        showToast('อัปเดตรหัสโต๊ะสำเร็จ');
+    }).catch(err => {
+        showToast('เกิดข้อผิดพลาดในการบันทึกรหัสโต๊ะ', 'error');
+        console.error(err);
+    });
+}
+
+function toggleSuspendSeller(sellerId, suspend) {
+    const actionText = suspend ? 'ระงับบัญชีผู้ขายนี้ชั่วคราว' : 'ปลดการระงับบัญชีผู้ขายนี้';
+    if (confirm(`คุณต้องการ ${actionText} ใช่หรือไม่?`)) {
+        db.ref('users/' + sellerId).update({ suspended: suspend }).then(() => {
+            showToast(suspend ? 'ระงับบัญชีผู้ขายแล้ว' : 'ปลดระงับบัญชีผู้ขายแล้ว');
+        }).catch(err => {
+            showToast('เกิดข้อผิดพลาดในการปรับสถานะบัญชี', 'error');
+            console.error(err);
+        });
+    }
+}
+
+
+// --- Council Daily Product Export ---
+
+function renderDailyReport() {
+    const container = document.getElementById('reportContainer');
+    if (!container) return;
+
+    const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
+    
+    // Only approved or sold products scheduled for this date
+    const products = state.products.filter(p => {
+        if (p.status !== 'approved' && p.status !== 'sold') return false;
+        if (!p.sellDates || !Array.isArray(p.sellDates)) return true; // Default show if legacy
+        return p.sellDates.includes(selectedDate);
+    });
+
+    if (products.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="material-icons-round">find_in_page</span>
+                <h3>ไม่มีรายการสินค้าที่จะวางขายในวันที่ ${selectedDate} สิงหาคม 2569</h3>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="padding:1.5rem;">
+            <div style="text-align:center; margin-bottom:1.5rem;">
+                <h2 style="font-size:1.5rem; font-weight:700;">ตารางสินค้า ตลาดนัด KUSK Market</h2>
+                <p style="color:var(--text-secondary);">ประจำวันที่ ${selectedDate} สิงหาคม 2569 (จำนวนทั้งหมด ${products.length} รายการ)</p>
+            </div>
+            <table class="custom-table" id="dailyReportTable">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">ลำดับ</th>
+                        <th>ชื่อสินค้า</th>
+                        <th>ผู้ขาย (ระดับชั้น)</th>
+                        <th>รหัสโต๊ะ</th>
+                        <th>ราคาขายจริง (บาท)</th>
+                        <th>ราคาเดิม (บาท)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${products.map((p, index) => {
+                        const seller = state.users.find(u => u.id === p.sellerId);
+                        const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : 'ผู้ขายที่ไม่ระบุ';
+                        const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
+                        return `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td><strong>${p.name}</strong> ${p.quantityType === 'multiple' ? `(มี ${p.quantity} ชิ้น)` : ''}</td>
+                                <td>${sellerName}</td>
+                                <td><code>${tableIdText}</code></td>
+                                <td style="font-weight:700; color:var(--primary);">฿${formatPrice(p.price)}</td>
+                                <td style="color:var(--text-muted); text-decoration:line-through;">฿${formatPrice(p.originalPrice || p.price)}</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function copyReportTable() {
+    const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
+    const products = state.products.filter(p => {
+        if (p.status !== 'approved' && p.status !== 'sold') return false;
+        if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
+        return p.sellDates.includes(selectedDate);
+    });
+
+    if (products.length === 0) {
+        showToast('ไม่มีข้อมูลในตารางสำหรับคัดลอก', 'error');
+        return;
+    }
+
+    let text = `ตารางสินค้า KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569\n`;
+    text += `ลำดับ\tชื่อสินค้า\tชื่อคนขาย\tรหัสโต๊ะ\tราคา (บาท)\n`;
+
+    products.forEach((p, index) => {
+        const seller = state.users.find(u => u.id === p.sellerId);
+        const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : '-';
+        const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
+        text += `${index + 1}\t${p.name}\t${sellerName}\t${tableIdText}\t${p.price}\n`;
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('คัดลอกตารางลง Clipboard แล้ว!');
+    }).catch(err => {
+        showToast('ไม่สามารถคัดลอกได้', 'error');
+        console.error(err);
+    });
+}
+
 
 // --- Market Page ---
 
@@ -795,6 +1108,7 @@ function filterByCategory(category, pageContext = 'market') {
 
 function filterProducts() {
     const search = document.getElementById('searchInput').value.toLowerCase();
+    const dateFilter = document.getElementById('dateFilter').value;
     const priceFilter = document.getElementById('priceFilter').value;
     const sortFilter = document.getElementById('sortFilter').value;
 
@@ -802,6 +1116,17 @@ function filterProducts() {
         // Only show approved or sold in market
         if (p.status !== 'approved' && p.status !== 'sold') return false;
         
+        // Hide products of suspended sellers
+        const seller = state.users.find(u => u.id === p.sellerId);
+        if (seller && seller.suspended) return false;
+
+        // Date Filter
+        if (dateFilter !== 'all') {
+            if (p.sellDates && Array.isArray(p.sellDates) && !p.sellDates.includes(dateFilter)) {
+                return false;
+            }
+        }
+
         // Category
         if (state.currentCategory !== 'all' && p.category !== state.currentCategory) return false;
         
@@ -814,7 +1139,7 @@ function filterProducts() {
             if (max) {
                 if (p.price < parseInt(min) || p.price > parseInt(max)) return false;
             } else {
-                if (p.price < parseInt(min)) return false; // 500+
+                if (p.price < parseInt(min)) return false;
             }
         }
         
@@ -837,7 +1162,12 @@ function filterProducts() {
 
 function renderMarket() {
     // Update Stats
-    const approvedProducts = state.products.filter(p => p.status === 'approved' || p.status === 'sold');
+    const approvedProducts = state.products.filter(p => {
+        if (p.status !== 'approved' && p.status !== 'sold') return false;
+        const seller = state.users.find(u => u.id === p.sellerId);
+        return !(seller && seller.suspended);
+    });
+
     document.getElementById('statProducts').innerText = approvedProducts.length;
     
     const uniqueSellers = new Set(approvedProducts.map(p => p.sellerId));
@@ -862,6 +1192,7 @@ function renderMarketList(products) {
 
     container.innerHTML = products.map(p => {
         const seller = state.users.find(u => u.id === p.sellerId);
+        const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
         return `
             <div class="product-card" onclick="openDetailModal('${p.id}')">
                 <div class="product-image">
@@ -873,9 +1204,12 @@ function renderMarketList(products) {
                 </div>
                 <div class="product-info">
                     <div class="product-title" style="${p.status === 'sold' ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${p.name} ${p.quantityType === 'multiple' ? `<small>(มี ${p.quantity} ชิ้น)</small>` : ''}</div>
-                    <div class="product-price" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">฿${formatPrice(p.price)}</div>
+                    <div class="product-price" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">
+                        ฿${formatPrice(p.price)}
+                        ${p.originalPrice ? `<span class="price-original-strikethrough">฿${formatPrice(p.originalPrice)}</span>` : ''}
+                    </div>
                     <div class="product-meta">
-                        <span class="material-icons-round">storefront</span> โต๊ะ ${seller ? seller.tableId : '-'}
+                        <span class="material-icons-round">storefront</span> โต๊ะ ${tableIdText}
                         <span style="margin-left:auto">${getCategoryName(p.category).split(' ')[1]}</span>
                     </div>
                 </div>
@@ -890,6 +1224,8 @@ function openDetailModal(productId) {
     
     if (!product) return;
 
+    const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนดรหัสโต๊ะ';
+
     const body = document.getElementById('detailModalBody');
     body.innerHTML = `
         <div class="detail-layout">
@@ -901,25 +1237,28 @@ function openDetailModal(productId) {
             </div>
             <div class="detail-info">
                 <h3 style="${product.status === 'sold' ? 'text-decoration: line-through;' : ''}">${product.name} ${product.quantityType === 'multiple' ? `<span style="font-size: 1rem; font-weight: normal; color: var(--text-secondary);">(มี ${product.quantity} ชิ้น)</span>` : ''}</h3>
-                <div class="detail-price" style="${product.status === 'sold' ? 'color: var(--text-muted);' : ''}">฿${formatPrice(product.price)}</div>
+                <div class="detail-price" style="${product.status === 'sold' ? 'color: var(--text-muted);' : ''}">
+                    ฿${formatPrice(product.price)}
+                    ${product.originalPrice ? `<span class="price-original-strikethrough" style="font-size:1.1rem">฿${formatPrice(product.originalPrice)}</span>` : ''}
+                </div>
                 
                 <div class="detail-section">
-                    <h4>ประเภท</h4>
-                    <p>${getCategoryName(product.category)}</p>
+                    <h4>ประเภทสินค้า & วันที่วางขาย</h4>
+                    <p>${getCategoryName(product.category)} | 📅 วันขาย: ${formatSellDates(product.sellDates)}</p>
                 </div>
                 
                 <div class="detail-section">
                     <h4>ตำหนิ / สภาพ</h4>
-                    <p>${product.defects}</p>
+                    <p>${product.defects || 'ไม่มี'}</p>
                 </div>
 
                 <div class="detail-section">
                     <h4>ข้อมูลผู้ขาย</h4>
-                    <div class="seller-profile-card" onclick="openShopModal('${seller.id}')">
-                        <img src="${seller.image || 'https://via.placeholder.com/50'}" alt="Seller">
+                    <div class="seller-profile-card" onclick="${seller ? `openShopModal('${seller.id}')` : ''}">
+                        <img src="${seller ? (seller.image || 'https://via.placeholder.com/50') : 'https://via.placeholder.com/50'}" alt="Seller">
                         <div class="seller-profile-info">
-                            <strong>${seller.name} (${seller.grade})</strong>
-                            <span>รหัสโต๊ะ: ${seller.tableId}</span>
+                            <strong>${seller ? seller.name : 'ผู้ขาย'} (${seller ? seller.grade : '-'})</strong>
+                            <span>รหัสโต๊ะ: ${tableIdText}</span>
                         </div>
                         <span class="material-icons-round" style="margin-left:auto; color:var(--primary)">chevron_right</span>
                     </div>
@@ -941,7 +1280,8 @@ function openShopModal(sellerId) {
     const seller = state.users.find(u => u.id === sellerId);
     if(!seller) return;
 
-    document.getElementById('shopModalTitle').innerText = `ร้านค้าของ ${seller.name} (โต๊ะ ${seller.tableId})`;
+    const tableIdText = seller.tableId ? seller.tableId : 'ยังไม่กำหนดรหัสโต๊ะ';
+    document.getElementById('shopModalTitle').innerText = `ร้านค้าของ ${seller.name} (โต๊ะ ${tableIdText})`;
 
     const sellerProducts = state.products.filter(p => p.sellerId === sellerId && (p.status === 'approved' || p.status === 'sold'));
 
@@ -968,7 +1308,10 @@ function openShopModal(sellerId) {
                         </div>
                         <div class="product-info">
                             <div class="product-title" style="${p.status === 'sold' ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${p.name}</div>
-                            <div class="product-price" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">฿${formatPrice(p.price)}</div>
+                            <div class="product-price" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">
+                                ฿${formatPrice(p.price)}
+                                ${p.originalPrice ? `<span class="price-original-strikethrough">฿${formatPrice(p.originalPrice)}</span>` : ''}
+                            </div>
                         </div>
                     </div>
                 `).join('')}
@@ -1004,7 +1347,7 @@ function openProfileModal() {
 
     if (state.currentUser.role === 'seller') {
         document.getElementById('profileTableBadge').style.display = 'inline-block';
-        document.getElementById('profileTableIdText').innerText = state.currentUser.tableId;
+        document.getElementById('profileTableIdText').innerText = state.currentUser.tableId || 'ยังไม่กำหนด';
     } else {
         document.getElementById('profileTableBadge').style.display = 'none';
     }
