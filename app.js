@@ -1051,10 +1051,17 @@ function renderDailyReport() {
     const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
     
     // Only approved or sold products scheduled for this date
-    const products = state.products.filter(p => {
+    let products = state.products.filter(p => {
         if (p.status !== 'approved' && p.status !== 'sold') return false;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true; // Default show if legacy
         return p.sellDates.includes(selectedDate);
+    });
+
+    // Sort products by seller name so items of the same seller are grouped together
+    products.sort((a, b) => {
+        const sellerA = (state.users.find(u => u.id === a.sellerId)?.name || '').toLowerCase();
+        const sellerB = (state.users.find(u => u.id === b.sellerId)?.name || '').toLowerCase();
+        return sellerA.localeCompare(sellerB, 'th');
     });
 
     if (products.length === 0) {
@@ -1108,10 +1115,16 @@ function renderDailyReport() {
 
 function copyReportTable() {
     const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
-    const products = state.products.filter(p => {
+    let products = state.products.filter(p => {
         if (p.status !== 'approved' && p.status !== 'sold') return false;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
         return p.sellDates.includes(selectedDate);
+    });
+
+    products.sort((a, b) => {
+        const sellerA = (state.users.find(u => u.id === a.sellerId)?.name || '').toLowerCase();
+        const sellerB = (state.users.find(u => u.id === b.sellerId)?.name || '').toLowerCase();
+        return sellerA.localeCompare(sellerB, 'th');
     });
 
     if (products.length === 0) {
