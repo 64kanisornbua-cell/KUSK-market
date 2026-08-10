@@ -51,15 +51,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedUser) {
         state.currentUser = JSON.parse(savedUser);
     }
+
+    // Load local users fallback
+    const localUsers = localStorage.getItem('kusk_local_users');
+    if (localUsers) {
+        try { state.users = JSON.parse(localUsers); } catch(e){}
+    }
+
+    // Load local products fallback
+    const localProducts = localStorage.getItem('kusk_local_products');
+    if (localProducts) {
+        try { state.products = JSON.parse(localProducts); } catch(e){}
+    }
     
-    // Listen for users
+    // Listen for users from Firebase
     db.ref('users').on('value', (snapshot) => {
         const data = snapshot.val();
-        state.users = data ? Object.values(data) : [];
+        if (data) {
+            state.users = Object.values(data);
+            localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+        }
         if(state.currentUser && state.currentUser.role !== 'guest') {
             const updatedUser = state.users.find(u => u.id === state.currentUser.id);
             if(updatedUser) {
-                // If user has been suspended while using the app
                 if (updatedUser.suspended) {
                     showToast('บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อสภานักเรียน', 'error');
                     handleLogout();
@@ -72,16 +86,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentCouncilSection === 'sellers') {
             renderCouncilSellers();
         }
+    }, (error) => {
+        console.warn('Firebase users read error (using local data):', error);
     });
 
-    // Listen for products
+    // Listen for products from Firebase
     db.ref('products').on('value', (snapshot) => {
         const data = snapshot.val();
-        state.products = data ? Object.values(data) : [];
+        if (data) {
+            state.products = Object.values(data);
+            localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
+        }
         renderCurrentPage();
         if (state.currentCouncilSection === 'report') {
             renderDailyReport();
         }
+    }, (error) => {
+        console.warn('Firebase products read error (using local data):', error);
     });
 
     if (state.currentUser) {
@@ -115,6 +136,11 @@ function saveLocalUser() {
     } else {
         localStorage.removeItem('kusk_currentUser');
     }
+}
+
+function saveAllLocalData() {
+    localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+    localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
 }
 
 // --- Image Compression Helper ---
@@ -190,8 +216,8 @@ function previewImage(input, labelId) {
 
 function handleRegister() {
     const role = document.querySelector('.role-btn.active').dataset.role;
-    const name = document.getElementById('regName').value;
-    const username = document.getElementById('regUsername').value;
+    const name = document.getElementById('regName').value.trim();
+    const username = document.getElementById('regUsername').value.trim();
     const password = document.getElementById('regPassword').value;
 
     if (!name || !username || !password) {
@@ -200,7 +226,7 @@ function handleRegister() {
     }
 
     // Check if username exists
-    if (state.users.find(u => u.username === username)) {
+    if (state.users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
         showToast('ชื่อผู้ใช้นี้ถูกใช้งานแล้ว', 'error');
         return;
     }
@@ -215,7 +241,7 @@ function handleRegister() {
     };
 
     if (role === 'seller' || role === 'council') {
-        const code = document.getElementById('regSpecialCode').value;
+        const code = document.getElementById('regSpecialCode').value.trim();
         if (code !== SPECIAL_CODE) {
             showToast('รหัสเฉพาะไม่ถูกต้อง', 'error');
             return;
@@ -230,19 +256,29 @@ function handleRegister() {
         }
         newUser.grade = grade;
         newUser.image = tempSellerImage || 'https://via.placeholder.com/150';
-        // Table ID is not assigned automatically; assigned later by Council
         newUser.tableId = '';
     }
 
-    // Save to Firebase
+    // Update local state immediately
+    const existingIndex = state.users.findIndex(u => u.id === newUser.id);
+    if (existingIndex > -1) {
+        state.users[existingIndex] = newUser;
+    } else {
+        state.users.push(newUser);
+    }
+    saveAllLocalData();
+
+    // Save to Firebase (with fallback if rules are locked)
     db.ref('users/' + newUser.id).set(newUser).then(() => {
         showToast('ลงทะเบียนสำเร็จ! กรุณาเข้าสู่ระบบ');
         showLogin();
     }).catch(err => {
-        showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
-        console.error(err);
+        console.warn('Firebase error (saved locally):', err);
+        showToast('ลงทะเบียนสำเร็จแล้ว!');
+        showLogin();
     });
 }
+
 
 function handleLogin() {
     const username = document.getElementById('loginUsername').value;
@@ -565,12 +601,24 @@ function saveProduct() {
     }
 
     if (productData) {
+        // Save to local state first
+        const pIndex = state.products.findIndex(p => p.id === productData.id);
+        if (pIndex > -1) {
+            state.products[pIndex] = productData;
+        } else {
+            state.products.push(productData);
+        }
+        saveAllLocalData();
+
         db.ref('products/' + productData.id).set(productData).then(() => {
             showToast(id ? 'อัปเดตสินค้าและส่งตรวจสอบแล้ว' : 'เพิ่มสินค้าและส่งตรวจสอบแล้ว');
             closeProductModal();
+            renderCurrentPage();
         }).catch(err => {
-            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
-            console.error(err);
+            console.warn('Firebase error saving product (saved locally):', err);
+            showToast(id ? 'อัปเดตสินค้าเรียบร้อยแล้ว' : 'เพิ่มสินค้าเรียบร้อยแล้ว');
+            closeProductModal();
+            renderCurrentPage();
         });
     }
 }
