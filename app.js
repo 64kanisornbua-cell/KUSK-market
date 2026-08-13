@@ -358,12 +358,8 @@ function initApp() {
     const user = state.currentUser;
     if (user.role === 'guest') {
         document.getElementById('navUser').style.display = 'none'; // Guests don't need profile
-        const mobileProfile = document.getElementById('navProfileMobile');
-        if(mobileProfile) mobileProfile.style.display = 'none';
     } else {
         document.getElementById('navUser').style.display = 'flex';
-        const mobileProfile = document.getElementById('navProfileMobile');
-        if(mobileProfile) mobileProfile.style.display = 'flex';
     }
 
     const navSeller = document.getElementById('navSeller');
@@ -1411,14 +1407,17 @@ function openDetailModal(productId) {
                 </div>
 
                 <div class="detail-section">
-                    <h4>ข้อมูลผู้ขาย</h4>
+                    <h4>ข้อมูลผู้ขาย / ร้านค้า</h4>
                     <div class="seller-profile-card" onclick="${seller ? `openShopModal('${seller.id}')` : ''}">
-                        <div style="width:40px; height:40px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                            <span class="material-icons-round" style="font-size:22px;">storefront</span>
-                        </div>
+                        ${seller && seller.image ? 
+                            `<img src="${seller.image}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; flex-shrink:0;">` : 
+                            `<div style="width:40px; height:40px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <span class="material-icons-round" style="font-size:22px;">storefront</span>
+                            </div>`
+                        }
                         <div class="seller-profile-info">
-                            <strong>${seller ? seller.name : 'ผู้ขาย'} (${seller ? seller.grade : '-'})</strong>
-                            <span>รหัสโต๊ะ: ${tableIdText}</span>
+                            <strong>${seller ? (seller.shopName || ('ร้านของ ' + seller.name)) : 'ผู้ขาย'} (${seller ? seller.grade : '-'})</strong>
+                            <span>เจ้าของร้าน: ${seller ? seller.name : '-'} | รหัสโต๊ะ: ${tableIdText}</span>
                         </div>
                         <span class="material-icons-round" style="margin-left:auto; color:var(--primary)">chevron_right</span>
                     </div>
@@ -1441,7 +1440,8 @@ function openShopModal(sellerId) {
     if(!seller) return;
 
     const tableIdText = seller.tableId ? seller.tableId : 'ยังไม่กำหนดรหัสโต๊ะ';
-    document.getElementById('shopModalTitle').innerText = `ร้านค้าของ ${seller.name} (โต๊ะ ${tableIdText})`;
+    const displayShopName = seller.shopName ? seller.shopName : `ร้านของ ${seller.name}`;
+    document.getElementById('shopModalTitle').innerText = `${displayShopName} (โต๊ะ ${tableIdText})`;
 
     const sellerProducts = state.products.filter(p => p.sellerId === sellerId && (p.status === 'approved' || p.status === 'sold'));
 
@@ -1486,6 +1486,53 @@ function closeShopModal() {
     document.getElementById('shopModal').classList.remove('active');
 }
 
+let tempEditSellerImage = '';
+function previewEditSellerImage(input) {
+    if (input.files && input.files[0]) {
+        compressImage(input.files[0], (compressedDataUrl) => {
+            tempEditSellerImage = compressedDataUrl;
+            const label = document.getElementById('editSellerImageLabel');
+            if (label) {
+                label.innerText = 'เลือกรูปภาพแล้ว';
+                label.style.color = 'var(--primary)';
+            }
+        });
+    }
+}
+
+function saveSellerProfileSettings() {
+    if (!state.currentUser || state.currentUser.role !== 'seller') return;
+
+    const shopName = document.getElementById('editShopName').value.trim();
+    const image = tempEditSellerImage || state.currentUser.image || '';
+
+    state.currentUser.shopName = shopName;
+    if (image) state.currentUser.image = image;
+
+    const uIdx = state.users.findIndex(u => u.id === state.currentUser.id);
+    if (uIdx > -1) {
+        state.users[uIdx].shopName = shopName;
+        if (image) state.users[uIdx].image = image;
+    }
+
+    saveLocalUser();
+    saveAllLocalData();
+
+    db.ref('users/' + state.currentUser.id).update({
+        shopName: shopName,
+        image: state.currentUser.image || ''
+    }).then(() => {
+        showToast('อัปเดตข้อมูลร้านค้าเรียบร้อยแล้ว');
+        openProfileModal();
+        renderCurrentPage();
+    }).catch(err => {
+        console.warn('Firebase update error:', err);
+        showToast('อัปเดตข้อมูลร้านค้าเรียบร้อยแล้ว');
+        openProfileModal();
+        renderCurrentPage();
+    });
+}
+
 // --- Profile Modal & Logic ---
 
 function openProfileModal() {
@@ -1498,14 +1545,24 @@ function openProfileModal() {
     document.getElementById('profileRoleLarge').innerText = roleText;
 
     const avatarIcon = document.getElementById('profileAvatarLarge');
-    let iconName = state.currentUser.role === 'council' ? 'verified_user' : 'person';
-    avatarIcon.innerHTML = `<span class="material-icons-round">${iconName}</span>`;
+    if (state.currentUser.role === 'seller' && state.currentUser.image) {
+        avatarIcon.innerHTML = `<img src="${state.currentUser.image}" alt="Profile" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+    } else {
+        let iconName = state.currentUser.role === 'council' ? 'verified_user' : 'person';
+        avatarIcon.innerHTML = `<span class="material-icons-round">${iconName}</span>`;
+    }
 
+    const sellerSettings = document.getElementById('sellerProfileSettings');
     if (state.currentUser.role === 'seller') {
         document.getElementById('profileTableBadge').style.display = 'inline-block';
         document.getElementById('profileTableIdText').innerText = state.currentUser.tableId || 'ยังไม่กำหนด';
+        if (sellerSettings) {
+            sellerSettings.style.display = 'block';
+            document.getElementById('editShopName').value = state.currentUser.shopName || '';
+        }
     } else {
         document.getElementById('profileTableBadge').style.display = 'none';
+        if (sellerSettings) sellerSettings.style.display = 'none';
     }
 
     document.getElementById('oldPassword').value = '';

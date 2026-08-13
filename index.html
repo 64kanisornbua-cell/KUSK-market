@@ -145,10 +145,6 @@
                     <span class="material-icons-round">fact_check</span>
                     <span>สภานักเรียน</span>
                 </button>
-                <button class="nav-link" id="navProfileMobile" style="display:none" onclick="openProfileModal()">
-                    <span class="material-icons-round">account_circle</span>
-                    <span>บัญชีผู้ใช้</span>
-                </button>
             </div>
             <div class="nav-user" id="navUser" onclick="openProfileModal()">
                 <div class="user-avatar" id="userAvatar">
@@ -162,7 +158,7 @@
             <div class="page-header">
                 <div class="page-title-area">
                     <h1>🛍️ ตลาดนัด KUSK</h1>
-                    <p>สินค้ามือสองคุณภาพดี จากเพื่อนสู่เพื่อน (วันเปิดตลาด 24, 26 ส.ค. 2569)</p>
+                    <p>สินค้ามือสองคุณภาพดี จากเพื่อนสู่เพื่อน<br>(วันเปิดตลาด 24, 26 ส.ค. 2569)</p>
                 </div>
                 <div class="market-stats" id="marketStats">
                     <div class="stat-card">
@@ -299,7 +295,24 @@
                     <h1>☑ แผงควบคุมสภานักเรียน</h1>
                     <p>ตรวจสอบและอนุมัติสินค้านี้ก่อนขึ้นตลาด</p>
                 </div>
-                <div class="council-stats">
+            </div>
+
+            <!-- Council Navigation Tabs (ขึ้นก่อน) -->
+            <div class="council-main-nav">
+                <button class="council-nav-btn active" data-sec="products" onclick="switchCouncilSection('products')">
+                    <span class="material-icons-round">fact_check</span> ตรวจสอบสินค้า
+                </button>
+                <button class="council-nav-btn" data-sec="sellers" onclick="switchCouncilSection('sellers')">
+                    <span class="material-icons-round">groups</span> จัดการพ่อค้า/แม่ค้า
+                </button>
+                <button class="council-nav-btn" data-sec="report" onclick="switchCouncilSection('report')">
+                    <span class="material-icons-round">summarize</span> ตารางสินค้าประจำวัน
+                </button>
+            </div>
+
+            <!-- Section 1: Product Reviews -->
+            <div id="councilSectionProducts" class="council-section active">
+                <div class="council-stats" style="margin-bottom: 1.25rem;">
                     <div class="stat-card warning">
                         <span class="material-icons-round">pending_actions</span>
                         <div>
@@ -315,23 +328,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Council Navigation Tabs -->
-            <div class="council-main-nav">
-                <button class="council-nav-btn active" data-sec="products" onclick="switchCouncilSection('products')">
-                    <span class="material-icons-round">fact_check</span> ตรวจสอบสินค้า
-                </button>
-                <button class="council-nav-btn" data-sec="sellers" onclick="switchCouncilSection('sellers')">
-                    <span class="material-icons-round">groups</span> จัดการพ่อค้า/แม่ค้า
-                </button>
-                <button class="council-nav-btn" data-sec="report" onclick="switchCouncilSection('report')">
-                    <span class="material-icons-round">summarize</span> ตารางสินค้าประจำวัน
-                </button>
-            </div>
-
-            <!-- Section 1: Product Reviews -->
-            <div id="councilSectionProducts" class="council-section active">
                 <div class="council-tabs">
                     <button class="tab active" data-tab="pending" onclick="switchCouncilTab('pending')">
                         <span class="material-icons-round">pending_actions</span>
@@ -618,6 +615,26 @@
                         <p id="profileRoleLarge" class="text-muted">บทบาท</p>
                         <div id="profileTableBadge" class="table-badge" style="display:none;">รหัสโต๊ะ: <span id="profileTableIdText">ยังไม่กำหนด</span></div>
                     </div>
+                </div>
+
+                <div id="sellerProfileSettings" class="profile-section" style="display:none; margin-bottom:1.25rem; border-bottom:1px dashed var(--border); padding-bottom:1.25rem;">
+                    <h4 style="margin-bottom:0.75rem;">ตั้งค่าร้านค้า & รูปโปรไฟล์</h4>
+                    <div class="form-group">
+                        <label>ชื่อร้านค้า</label>
+                        <input type="text" id="editShopName" placeholder="ตั้งชื่อร้านค้าของคุณ">
+                    </div>
+                    <div class="form-group">
+                        <label>รูปโปรไฟล์ร้านค้า</label>
+                        <div class="file-upload" onclick="document.getElementById('editSellerImage').click()">
+                            <span class="material-icons-round">add_a_photo</span>
+                            <span id="editSellerImageLabel">เลือกรูปโปรไฟล์ร้านค้า</span>
+                            <input type="file" id="editSellerImage" accept="image/*" style="display:none" onchange="previewEditSellerImage(this)">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-full" onclick="saveSellerProfileSettings()">
+                        <span class="material-icons-round">save</span>
+                        บันทึกข้อมูลร้านค้า
+                    </button>
                 </div>
 
                 <div class="profile-section">
