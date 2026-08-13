@@ -736,9 +736,6 @@ function switchCouncilSection(sectionId) {
     const activeBtn = document.querySelector(`.council-nav-btn[data-sec="${sectionId}"]`);
     if(activeBtn) activeBtn.classList.add('active');
 
-    const mobileSelect = document.getElementById('councilMobileSelect');
-    if (mobileSelect) mobileSelect.value = sectionId;
-
     document.querySelectorAll('.council-section').forEach(sec => sec.style.display = 'none');
     
     if (sectionId === 'products') {
