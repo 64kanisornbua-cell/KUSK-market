@@ -217,24 +217,23 @@ function previewImage(input, labelId) {
 function handleRegister() {
     const role = document.querySelector('.role-btn.active').dataset.role;
     const name = document.getElementById('regName').value.trim();
-    const username = document.getElementById('regUsername').value.trim();
     const password = document.getElementById('regPassword').value;
 
-    if (!name || !username || !password) {
+    if (!name || !password) {
         showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
         return;
     }
 
-    // Check if username exists
-    if (state.users.find(u => u.username.toLowerCase() === username.toLowerCase())) {
-        showToast('ชื่อผู้ใช้นี้ถูกใช้งานแล้ว', 'error');
+    // Check if real name exists
+    if (state.users.find(u => u.name.toLowerCase() === name.toLowerCase() || (u.username && u.username.toLowerCase() === name.toLowerCase()))) {
+        showToast('ชื่อ-นามสกุลนี้ถูกลงทะเบียนไว้แล้ว', 'error');
         return;
     }
 
     let newUser = {
         id: 'U' + Date.now(),
         name,
-        username,
+        username: name,
         password,
         role,
         suspended: false
@@ -255,7 +254,6 @@ function handleRegister() {
             return;
         }
         newUser.grade = grade;
-        newUser.image = tempSellerImage || 'https://via.placeholder.com/150';
         newUser.tableId = '';
     }
 
@@ -281,10 +279,18 @@ function handleRegister() {
 
 
 function handleLogin() {
-    const username = document.getElementById('loginUsername').value;
+    const inputName = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
 
-    const user = state.users.find(u => u.username === username && u.password === password);
+    if (!inputName || !password) {
+        showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+        return;
+    }
+
+    const user = state.users.find(u => 
+        (u.name.toLowerCase() === inputName.toLowerCase() || (u.username && u.username.toLowerCase() === inputName.toLowerCase())) && 
+        u.password === password
+    );
 
     if (user) {
         if (user.suspended) {
@@ -295,9 +301,9 @@ function handleLogin() {
         saveLocalUser();
         initApp();
         showToast('เข้าสู่ระบบสำเร็จ');
-        if(user.role !== 'guest') closeProfileModal(); // fail-safe if left open
+        if(user.role !== 'guest') closeProfileModal();
     } else {
-        showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+        showToast('ชื่อ-นามสกุล หรือ รหัสผ่านไม่ถูกต้อง', 'error');
     }
 }
 
@@ -839,7 +845,9 @@ function openReviewModal(productId) {
                 </div>
 
                 <div class="seller-profile-card">
-                    <img src="${seller ? (seller.image || 'https://via.placeholder.com/50') : 'https://via.placeholder.com/50'}" alt="Seller">
+                    <div style="width:40px; height:40px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <span class="material-icons-round" style="font-size:22px;">storefront</span>
+                    </div>
                     <div class="seller-profile-info">
                         <strong>ผู้ขาย: ${seller ? seller.name : 'ไม่พบข้อมูล'} (${seller ? seller.grade : '-'})</strong>
                         <span>รหัสโต๊ะ: ${tableIdText}</span>
@@ -960,7 +968,7 @@ function renderCouncilSellers() {
     
     let sellers = state.users.filter(u => u.role === 'seller');
     if (query) {
-        sellers = sellers.filter(s => s.name.toLowerCase().includes(query) || s.username.toLowerCase().includes(query) || (s.tableId && s.tableId.toLowerCase().includes(query)));
+        sellers = sellers.filter(s => s.name.toLowerCase().includes(query) || (s.tableId && s.tableId.toLowerCase().includes(query)));
     }
 
     if (sellers.length === 0) {
@@ -977,9 +985,8 @@ function renderCouncilSellers() {
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>ผู้ขาย</th>
+                    <th>ผู้ขาย (ชื่อ-นามสกุล)</th>
                     <th>ระดับชั้น</th>
-                    <th>ชื่อผู้ใช้</th>
                     <th>รหัสโต๊ะ (สภากำหนด)</th>
                     <th>สถานะบัญชี</th>
                     <th>การจัดการ</th>
@@ -989,11 +996,12 @@ function renderCouncilSellers() {
                 ${sellers.map(s => `
                     <tr>
                         <td style="display:flex; align-items:center; gap:0.5rem;">
-                            <img src="${s.image || 'https://via.placeholder.com/40'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
+                            <div style="width:34px; height:34px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center;">
+                                <span class="material-icons-round" style="font-size:18px">person</span>
+                            </div>
                             <strong>${s.name}</strong>
                         </td>
                         <td>${s.grade || '-'}</td>
-                        <td><code>${s.username}</code></td>
                         <td>
                             <div style="display:flex; gap:0.25rem;">
                                 <input type="text" id="tableIdInput_${s.id}" value="${s.tableId || ''}" placeholder="เช่น T-01" class="table-input">
@@ -1391,7 +1399,9 @@ function openDetailModal(productId) {
                 <div class="detail-section">
                     <h4>ข้อมูลผู้ขาย</h4>
                     <div class="seller-profile-card" onclick="${seller ? `openShopModal('${seller.id}')` : ''}">
-                        <img src="${seller ? (seller.image || 'https://via.placeholder.com/50') : 'https://via.placeholder.com/50'}" alt="Seller">
+                        <div style="width:40px; height:40px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <span class="material-icons-round" style="font-size:22px;">storefront</span>
+                        </div>
                         <div class="seller-profile-info">
                             <strong>${seller ? seller.name : 'ผู้ขาย'} (${seller ? seller.grade : '-'})</strong>
                             <span>รหัสโต๊ะ: ${tableIdText}</span>
@@ -1474,12 +1484,8 @@ function openProfileModal() {
     document.getElementById('profileRoleLarge').innerText = roleText;
 
     const avatarIcon = document.getElementById('profileAvatarLarge');
-    if (state.currentUser.role === 'seller' && state.currentUser.image) {
-        avatarIcon.innerHTML = `<img src="${state.currentUser.image}" alt="Profile">`;
-    } else {
-        let iconName = state.currentUser.role === 'council' ? 'verified_user' : 'person';
-        avatarIcon.innerHTML = `<span class="material-icons-round">${iconName}</span>`;
-    }
+    let iconName = state.currentUser.role === 'council' ? 'verified_user' : 'person';
+    avatarIcon.innerHTML = `<span class="material-icons-round">${iconName}</span>`;
 
     if (state.currentUser.role === 'seller') {
         document.getElementById('profileTableBadge').style.display = 'inline-block';

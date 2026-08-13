@@ -42,8 +42,8 @@
 
                 <h2 style="font-size:1.1rem; margin-bottom:0.75rem;">เข้าสู่ระบบสมาชิก</h2>
                 <div class="form-group">
-                    <label>ชื่อผู้ใช้</label>
-                    <input type="text" id="loginUsername" placeholder="กรอกชื่อผู้ใช้">
+                    <label>ชื่อ-นามสกุล</label>
+                    <input type="text" id="loginUsername" placeholder="กรอกชื่อ-นามสกุล">
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่าน</label>
@@ -77,16 +77,12 @@
 
                 <div class="form-group">
                     <label>ชื่อ-นามสกุล</label>
-                    <input type="text" id="regName" placeholder="กรอกชื่อ-นามสกุล">
-                </div>
-                <div class="form-group">
-                    <label>ชื่อผู้ใช้</label>
-                    <input type="text" id="regUsername" placeholder="กรอกชื่อผู้ใช้สำหรับเข้าสู่ระบบ">
+                    <input type="text" id="regName" placeholder="กรอกชื่อ-นามสกุลจริง">
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่าน</label>
                     <div class="password-input-wrapper">
-                        <input type="password" id="regPassword" placeholder="กรอกรหัสผ่าน">
+                        <input type="password" id="regPassword" placeholder="ตั้งรหัสผ่าน">
                         <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('regPassword', 'regPassIcon')">
                             <span class="material-icons-round" id="regPassIcon">visibility</span>
                         </button>
@@ -108,14 +104,6 @@
                             <option value="ม.5">ม.5</option>
                             <option value="ม.6">ม.6</option>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label>รูปผู้ขาย</label>
-                        <div class="file-upload" onclick="document.getElementById('regSellerImage').click()">
-                            <span class="material-icons-round">add_a_photo</span>
-                            <span id="sellerImageLabel">เลือกรูปภาพ</span>
-                            <input type="file" id="regSellerImage" accept="image/*" style="display:none" onchange="previewImage(this, 'sellerImageLabel')">
-                        </div>
                     </div>
                 </div>
 
@@ -675,10 +663,10 @@
             <div class="modal-body">
                 <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem;">
                     วางตารางข้อมูลผู้ขายที่ต้องการสร้างบัญชี (1 คนต่อ 1 บรรทัด)<br>
-                    <strong>รูปแบบ:</strong> <code>ชื่อ-นามสกุล, ชื่อผู้ใช้, รหัสผ่าน, ระดับชั้น, รหัสโต๊ะ</code>
+                    <strong>รูปแบบ:</strong> <code>ชื่อ-นามสกุล, รหัสผ่าน, ระดับชั้น, รหัสโต๊ะ</code>
                 </p>
                 <div class="form-group">
-                    <textarea id="bulkImportInput" style="width:100%; height:160px; font-family:monospace; font-size:0.85rem; padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--border);" placeholder="สมชาย ใจดี, somchai, 123456, ม.4, T-01&#10;สมหญิง รักดี, somying, 654321, ม.5, T-02"></textarea>
+                    <textarea id="bulkImportInput" style="width:100%; height:160px; font-family:monospace; font-size:0.85rem; padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--border);" placeholder="สมชาย ใจดี, 123456, ม.4, T-01&#10;สมหญิง รักดี, 654321, ม.5, T-02"></textarea>
                 </div>
                 <div style="font-size:0.8rem; color:var(--text-muted); background:var(--bg-main); padding:0.5rem 0.75rem; border-radius:var(--radius-md);">
                     💡 <strong>คำแนะนำ:</strong> สามารถคัดลอกจาก Excel หรือ Google Sheets แล้วนำมาวางในช่องนี้ได้ทันที (ใช้เครื่องหมายลูกน้ำ <code>,</code> หรือเว้นวรรคแบบ Tab คั่นระหว่างคอลัมน์ได้)
