@@ -1351,7 +1351,7 @@ function renderMarketList(products) {
                     }
                 </div>
                 <div class="product-info">
-                    <div class="product-title" style="${p.status === 'sold' ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${p.name} ${p.quantityType === 'multiple' ? `<small>(มี ${p.quantity} ชิ้น)</small>` : ''}</div>
+                    <div class="product-title" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">${p.name} ${p.quantityType === 'multiple' ? `<small>(มี ${p.quantity} ชิ้น)</small>` : ''}</div>
                     <div class="product-price" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">
                         ฿${formatPrice(p.price)}
                         ${p.originalPrice ? `<span class="price-original-strikethrough">฿${formatPrice(p.originalPrice)}</span>` : ''}
@@ -1381,7 +1381,7 @@ function openDetailModal(productId) {
                 <img src="${product.image}" alt="${product.name}" style="${product.status === 'sold' ? 'filter: grayscale(100%); opacity: 0.7;' : ''}">
             </div>
             <div class="detail-info">
-                <h3 style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; ${product.status === 'sold' ? 'text-decoration: line-through;' : ''}">
+                <h3 style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; ${product.status === 'sold' ? 'color: var(--text-muted);' : ''}">
                     <span>${product.name} ${product.quantityType === 'multiple' ? `<span style="font-size: 1rem; font-weight: normal; color: var(--text-secondary);">(มี ${product.quantity} ชิ้น)</span>` : ''}</span>
                     ${product.status === 'sold' ? `<span style="background: var(--danger); color: white; padding: 0.2rem 0.65rem; border-radius: var(--radius-full); font-weight: bold; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center;">ขายแล้ว</span>` : ''}
                 </h3>
@@ -1461,7 +1461,7 @@ function openShopModal(sellerId) {
                             }
                         </div>
                         <div class="product-info">
-                            <div class="product-title" style="${p.status === 'sold' ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${p.name}</div>
+                            <div class="product-title" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">${p.name}</div>
                             <div class="product-price" style="${p.status === 'sold' ? 'color: var(--text-muted);' : ''}">
                                 ฿${formatPrice(p.price)}
                                 ${p.originalPrice ? `<span class="price-original-strikethrough">฿${formatPrice(p.originalPrice)}</span>` : ''}
