@@ -145,11 +145,10 @@
                     <span class="material-icons-round">fact_check</span>
                     <span>สภานักเรียน</span>
                 </button>
-            </div>
-            <div class="nav-user" id="navUser" onclick="openProfileModal()">
-                <div class="user-avatar" id="userAvatar">
-                    <span class="material-icons-round">person</span>
-                </div>
+                <button class="nav-link" id="navProfile" style="display:none" onclick="openProfileModal()">
+                    <span class="material-icons-round">account_circle</span>
+                    <span>บัญชีผู้ใช้</span>
+                </button>
             </div>
         </nav>
 
@@ -673,9 +672,6 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>นำเข้าบัญชีผู้ขายแบบกลุ่ม (Bulk Import)</h2>
-                <button class="btn-icon" onclick="closeBulkImportModal()">
-                    <span class="material-icons-round">close</span>
-                </button>
             </div>
             <div class="modal-body">
                 <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem;">

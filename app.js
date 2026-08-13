@@ -356,23 +356,13 @@ function initApp() {
 
     // Setup Navigation
     const user = state.currentUser;
-    if (user.role === 'guest') {
-        document.getElementById('navUser').style.display = 'none'; // Guests don't need profile
-    } else {
-        document.getElementById('navUser').style.display = 'flex';
-    }
-
+    const navProfile = document.getElementById('navProfile');
     const navSeller = document.getElementById('navSeller');
     const navCouncil = document.getElementById('navCouncil');
 
-    navSeller.style.display = 'none';
-    navCouncil.style.display = 'none';
-
-    if (user.role === 'seller') {
-        navSeller.style.display = 'flex';
-    } else if (user.role === 'council') {
-        navCouncil.style.display = 'flex';
-    }
+    if (navProfile) navProfile.style.display = user.role === 'guest' ? 'none' : 'flex';
+    if (navSeller) navSeller.style.display = user.role === 'seller' ? 'flex' : 'none';
+    if (navCouncil) navCouncil.style.display = user.role === 'council' ? 'flex' : 'none';
 
     // Set Avatar
     const avatarIcon = document.getElementById('userAvatar');

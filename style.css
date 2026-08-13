@@ -1243,6 +1243,24 @@ body {
     .list-item-actions .btn {
         flex: 1;
     }
+
+    .sellers-table-container, .report-table-card {
+        margin-left: -0.25rem;
+        margin-right: -0.25rem;
+        width: calc(100% + 0.5rem);
+        border-radius: var(--radius-md);
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .custom-table {
+        min-width: 650px !important;
+    }
+
+    .custom-table th, .custom-table td {
+        padding: 0.75rem 0.85rem !important;
+        white-space: nowrap !important;
+    }
 }
 
 /* --- Password Toggle & New Features Styling --- */
@@ -1328,28 +1346,37 @@ body {
 
 /* Council Main Navigation & Sections */
 .council-main-nav {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 0.5rem;
     margin-bottom: 1.5rem;
     border-bottom: 2px solid var(--border);
     padding-bottom: 0.75rem;
-    flex-wrap: wrap;
 }
 
 .council-nav-btn {
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 0.6rem 1.2rem;
+    padding: 0.75rem 0.4rem;
     font-family: inherit;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--text-secondary);
     cursor: pointer;
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: center;
+    text-align: center;
+    gap: 0.35rem;
     transition: var(--transition);
+    width: 100%;
+    min-height: 72px;
+}
+
+.council-nav-btn .material-icons-round {
+    font-size: 22px;
 }
 
 .council-nav-btn:hover {
@@ -1380,11 +1407,14 @@ body {
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     margin-top: 1rem;
+    width: 100%;
 }
 
 .custom-table {
     width: 100%;
+    min-width: 650px;
     border-collapse: collapse;
     text-align: left;
     font-size: 0.95rem;
@@ -1393,6 +1423,7 @@ body {
 .custom-table th, .custom-table td {
     padding: 0.85rem 1rem;
     border-bottom: 1px solid var(--border);
+    white-space: nowrap;
 }
 
 .custom-table th {
