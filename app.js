@@ -1379,12 +1379,12 @@ function openDetailModal(productId) {
         <div class="detail-layout">
             <div class="detail-image">
                 <img src="${product.image}" alt="${product.name}" style="${product.status === 'sold' ? 'filter: grayscale(100%); opacity: 0.7;' : ''}">
-                 ${product.status === 'sold' ? 
-                    `<div style="position: absolute; top: 1rem; right: 1rem; background: var(--danger); color: white; padding: 0.5rem 1rem; border-radius: var(--radius-full); font-weight: bold; font-size: 1.2rem;">ขายแล้ว</div>` : ''
-                }
             </div>
             <div class="detail-info">
-                <h3 style="${product.status === 'sold' ? 'text-decoration: line-through;' : ''}">${product.name} ${product.quantityType === 'multiple' ? `<span style="font-size: 1rem; font-weight: normal; color: var(--text-secondary);">(มี ${product.quantity} ชิ้น)</span>` : ''}</h3>
+                <h3 style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; ${product.status === 'sold' ? 'text-decoration: line-through;' : ''}">
+                    <span>${product.name} ${product.quantityType === 'multiple' ? `<span style="font-size: 1rem; font-weight: normal; color: var(--text-secondary);">(มี ${product.quantity} ชิ้น)</span>` : ''}</span>
+                    ${product.status === 'sold' ? `<span style="background: var(--danger); color: white; padding: 0.2rem 0.65rem; border-radius: var(--radius-full); font-weight: bold; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center;">ขายแล้ว</span>` : ''}
+                </h3>
                 <div class="detail-price" style="${product.status === 'sold' ? 'color: var(--text-muted);' : ''}">
                     ฿${formatPrice(product.price)}
                     ${product.originalPrice ? `<span class="price-original-strikethrough" style="font-size:1.1rem">฿${formatPrice(product.originalPrice)}</span>` : ''}
