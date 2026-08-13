@@ -187,47 +187,77 @@ function showLogin() {
 function showRegister() {
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('registerForm').style.display = 'block';
-    selectRole('buyer'); // Default
+    selectRole('seller'); // Default to Seller
 }
 
 function selectRole(role) {
     // Update active button
     document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`.role-btn[data-role="${role}"]`).classList.add('active');
+    const btn = document.querySelector(`.role-btn[data-role="${role}"]`);
+    if(btn) btn.classList.add('active');
 
     // Show/hide specific fields
     const sellerFields = document.getElementById('sellerFields');
     const specialCodeField = document.getElementById('specialCodeField');
 
-    sellerFields.style.display = role === 'seller' ? 'block' : 'none';
-    specialCodeField.style.display = (role === 'seller' || role === 'council') ? 'block' : 'none';
-}
-
-let tempSellerImage = '';
-function previewImage(input, labelId) {
-    if (input.files && input.files[0]) {
-        compressImage(input.files[0], (compressedDataUrl) => {
-            tempSellerImage = compressedDataUrl;
-            document.getElementById(labelId).innerText = 'เลือกรูปภาพแล้ว';
-            document.getElementById(labelId).style.color = 'var(--primary)';
-        });
-    }
+    if(sellerFields) sellerFields.style.display = role === 'seller' ? 'block' : 'none';
+    if(specialCodeField) specialCodeField.style.display = (role === 'seller' || role === 'council') ? 'block' : 'none';
 }
 
 function handleRegister() {
-    const role = document.querySelector('.role-btn.active').dataset.role;
-    const name = document.getElementById('regName').value.trim();
-    const password = document.getElementById('regPassword').value;
+    const activeRoleBtn = document.querySelector('.role-btn.active');
+    const role = activeRoleBtn ? activeRoleBtn.dataset.role : 'seller';
 
-    if (!name || !password) {
-        showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+    const nameInput = document.getElementById('regName');
+    const passwordInput = document.getElementById('regPassword');
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const password = passwordInput ? passwordInput.value : '';
+
+    // 1. Validation check for required fields
+    if (!name) {
+        showToast('ลงทะเบียนไม่สำเร็จ: กรุณากรอกชื่อ-นามสกุลจริง', 'error');
+        if(nameInput) nameInput.focus();
         return;
     }
 
-    // Check if real name exists
-    if (state.users.find(u => u.name.toLowerCase() === name.toLowerCase() || (u.username && u.username.toLowerCase() === name.toLowerCase()))) {
-        showToast('ชื่อ-นามสกุลนี้ถูกลงทะเบียนไว้แล้ว', 'error');
+    if (!password) {
+        showToast('ลงทะเบียนไม่สำเร็จ: กรุณากำหนดรหัสผ่าน', 'error');
+        if(passwordInput) passwordInput.focus();
         return;
+    }
+
+    // 2. Validation check for duplicate name
+    const existingUser = state.users.find(u => 
+        u.name.toLowerCase() === name.toLowerCase() || 
+        (u.username && u.username.toLowerCase() === name.toLowerCase())
+    );
+    if (existingUser) {
+        showToast(`ลงทะเบียนไม่สำเร็จ: ชื่อ-นามสกุล "${name}" มีผู้ใช้งานในระบบแล้ว`, 'error');
+        return;
+    }
+
+    // 3. Validation check for special code
+    if (role === 'seller' || role === 'council') {
+        const codeInput = document.getElementById('regSpecialCode');
+        const code = codeInput ? codeInput.value.trim() : '';
+        if (code !== SPECIAL_CODE) {
+            showToast('ลงทะเบียนไม่สำเร็จ: รหัสเฉพาะไม่ถูกต้อง (กรุณากรอกรหัสเฉพาะจากสภา)', 'error');
+            if(codeInput) codeInput.focus();
+            return;
+        }
+    }
+
+    // 4. Validation check for grade (for sellers)
+    let grade = '';
+    if (role === 'seller') {
+        const gradeSelect = document.getElementById('regGrade');
+        grade = gradeSelect ? gradeSelect.value : '';
+        if (!grade) {
+            showToast('ลงทะเบียนไม่สำเร็จ: กรุณาเลือกระดับชั้นของคุณ', 'error');
+            if(gradeSelect) gradeSelect.focus();
+            return;
+        }
     }
 
     let newUser = {
@@ -236,26 +266,10 @@ function handleRegister() {
         username: name,
         password,
         role,
+        grade,
+        tableId: '',
         suspended: false
     };
-
-    if (role === 'seller' || role === 'council') {
-        const code = document.getElementById('regSpecialCode').value.trim();
-        if (code !== SPECIAL_CODE) {
-            showToast('รหัสเฉพาะไม่ถูกต้อง', 'error');
-            return;
-        }
-    }
-
-    if (role === 'seller') {
-        const grade = document.getElementById('regGrade').value;
-        if (!grade) {
-            showToast('กรุณาเลือกระดับชั้น', 'error');
-            return;
-        }
-        newUser.grade = grade;
-        newUser.tableId = '';
-    }
 
     // Update local state immediately
     const existingIndex = state.users.findIndex(u => u.id === newUser.id);
@@ -268,11 +282,11 @@ function handleRegister() {
 
     // Save to Firebase (with fallback if rules are locked)
     db.ref('users/' + newUser.id).set(newUser).then(() => {
-        showToast('ลงทะเบียนสำเร็จ! กรุณาเข้าสู่ระบบ');
+        showToast('ลงทะเบียนผู้ขายสำเร็จ! กรุณาเข้าสู่ระบบด้วยชื่อและรหัสผ่าน');
         showLogin();
     }).catch(err => {
-        console.warn('Firebase error (saved locally):', err);
-        showToast('ลงทะเบียนสำเร็จแล้ว!');
+        console.warn('Firebase register error (saved locally):', err);
+        showToast('ลงทะเบียนสำเร็จแล้ว! (บันทึกข้อมูลแล้ว)');
         showLogin();
     });
 }
