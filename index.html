@@ -164,7 +164,7 @@
                         <span class="material-icons-round">inventory</span>
                         <div>
                             <span class="stat-number" id="statProducts">0</span>
-                            <span class="stat-label">สินค้า (พร้อมขาย)</span>
+                            <span class="stat-label">สินค้าพร้อมขาย</span>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -296,17 +296,28 @@
                 </div>
             </div>
 
-            <!-- Council Navigation Tabs (ขึ้นก่อน) -->
-            <div class="council-main-nav">
-                <button class="council-nav-btn active" data-sec="products" onclick="switchCouncilSection('products')">
-                    <span class="material-icons-round">fact_check</span> ตรวจสอบสินค้า
-                </button>
-                <button class="council-nav-btn" data-sec="sellers" onclick="switchCouncilSection('sellers')">
-                    <span class="material-icons-round">groups</span> จัดการพ่อค้า/แม่ค้า
-                </button>
-                <button class="council-nav-btn" data-sec="report" onclick="switchCouncilSection('report')">
-                    <span class="material-icons-round">summarize</span> ตารางสินค้าประจำวัน
-                </button>
+            <!-- Council Navigation Tabs (Desktop Grid & Mobile Drawer Select) -->
+            <div class="council-nav-wrapper">
+                <div class="council-main-nav">
+                    <button class="council-nav-btn active" data-sec="products" onclick="switchCouncilSection('products')">
+                        <span class="material-icons-round">fact_check</span> ตรวจสอบสินค้า
+                    </button>
+                    <button class="council-nav-btn" data-sec="sellers" onclick="switchCouncilSection('sellers')">
+                        <span class="material-icons-round">groups</span> จัดการพ่อค้า/แม่ค้า
+                    </button>
+                    <button class="council-nav-btn" data-sec="report" onclick="switchCouncilSection('report')">
+                        <span class="material-icons-round">summarize</span> ตารางสินค้าประจำวัน
+                    </button>
+                </div>
+                
+                <div class="council-mobile-select-wrapper">
+                    <label style="font-size:0.85rem; font-weight:600; color:var(--text-secondary); margin-bottom:0.35rem; display:block;">เลือกเมนูสภานักเรียน:</label>
+                    <select id="councilMobileSelect" class="council-mobile-select" onchange="switchCouncilSection(this.value)">
+                        <option value="products">☑ ตรวจสอบสินค้า</option>
+                        <option value="sellers">👥 จัดการพ่อค้า/แม่ค้า</option>
+                        <option value="report">📑 ตารางสินค้าประจำวัน</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Section 1: Product Reviews -->

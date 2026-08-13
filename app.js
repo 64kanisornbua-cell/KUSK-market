@@ -733,7 +733,11 @@ function switchCouncilSection(sectionId) {
     state.currentCouncilSection = sectionId;
     
     document.querySelectorAll('.council-nav-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`.council-nav-btn[data-sec="${sectionId}"]`).classList.add('active');
+    const activeBtn = document.querySelector(`.council-nav-btn[data-sec="${sectionId}"]`);
+    if(activeBtn) activeBtn.classList.add('active');
+
+    const mobileSelect = document.getElementById('councilMobileSelect');
+    if (mobileSelect) mobileSelect.value = sectionId;
 
     document.querySelectorAll('.council-section').forEach(sec => sec.style.display = 'none');
     
