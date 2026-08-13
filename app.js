@@ -1006,9 +1006,12 @@ function renderCouncilSellers() {
                 ${sellers.map(s => `
                     <tr>
                         <td style="display:flex; align-items:center; gap:0.5rem;">
-                            <div style="width:34px; height:34px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center;">
-                                <span class="material-icons-round" style="font-size:18px">person</span>
-                            </div>
+                            ${s.image ? 
+                                `<img src="${s.image}" style="width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0;">` : 
+                                `<div style="width:34px; height:34px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <span class="material-icons-round" style="font-size:18px">person</span>
+                                </div>`
+                            }
                             <strong>${s.name}</strong>
                         </td>
                         <td>${s.grade || '-'}</td>
