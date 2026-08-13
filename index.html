@@ -29,7 +29,18 @@
 
             <!-- Login Form -->
             <div id="loginForm" class="auth-form">
-                <h2>เข้าสู่ระบบ</h2>
+                <div style="background: rgba(79, 70, 229, 0.06); padding: 1.1rem; border-radius: var(--radius-lg); border: 1px dashed var(--primary); text-align: center; margin-bottom: 1.25rem;">
+                    <h3 style="font-size:1.05rem; font-weight:700; margin-bottom:0.25rem; color:var(--primary);">🛍️ เข้าใช้งานสำหรับผู้ซื้อ</h3>
+                    <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.75rem;">ผู้ซื้อสามารถเข้าชมและเลือกซื้อสินค้าในตลาดได้ทันทีโดยไม่ต้องมีบัญชี</p>
+                    <button class="btn btn-primary btn-full" onclick="enterAsGuest()" style="font-size:1rem; padding:0.75rem;">
+                        <span class="material-icons-round">storefront</span>
+                        เข้าชมตลาดนัด (ผู้ซื้อ / ไม่ต้องใช้อาเคาท์)
+                    </button>
+                </div>
+
+                <div class="auth-divider"><span>สำหรับผู้ขาย / สภานักเรียน</span></div>
+
+                <h2 style="font-size:1.1rem; margin-bottom:0.75rem;">เข้าสู่ระบบสมาชิก</h2>
                 <div class="form-group">
                     <label>ชื่อผู้ใช้</label>
                     <input type="text" id="loginUsername" placeholder="กรอกชื่อผู้ใช้">
@@ -43,33 +54,24 @@
                         </button>
                     </div>
                 </div>
-                <button class="btn btn-primary btn-full" onclick="handleLogin()">
+                <button class="btn btn-outline btn-full" onclick="handleLogin()">
                     <span class="material-icons-round">login</span>
-                    เข้าสู่ระบบ
+                    เข้าสู่ระบบสมาชิก
                 </button>
-                <p class="auth-switch">ยังไม่มีบัญชี? <a href="#" onclick="showRegister()">ลงทะเบียน</a></p>
-                <div class="auth-divider"><span>หรือ</span></div>
-                <button class="btn btn-outline btn-full" onclick="enterAsGuest()">
-                    <span class="material-icons-round">visibility</span>
-                    เข้าชมตลาดแบบผู้เยี่ยมชม
-                </button>
+                <p class="auth-switch">ต้องการเปิดร้านขายสินค้า? <a href="#" onclick="showRegister()">ลงทะเบียนผู้ขาย</a></p>
             </div>
 
             <!-- Register Form -->
             <div id="registerForm" class="auth-form" style="display:none;">
-                <h2>ลงทะเบียน</h2>
+                <h2>ลงทะเบียนสมาชิกใหม่</h2>
                 <div class="role-selector">
-                    <button class="role-btn active" data-role="buyer" onclick="selectRole('buyer')">
-                        <span class="material-icons-round">shopping_bag</span>
-                        ผู้ซื้อ
-                    </button>
-                    <button class="role-btn" data-role="seller" onclick="selectRole('seller')">
+                    <button class="role-btn active" data-role="seller" onclick="selectRole('seller')">
                         <span class="material-icons-round">sell</span>
                         ผู้ขาย
                     </button>
                     <button class="role-btn" data-role="council" onclick="selectRole('council')">
                         <span class="material-icons-round">verified_user</span>
-                        สภา
+                        สภานักเรียน
                     </button>
                 </div>
 
@@ -91,7 +93,7 @@
                     </div>
                 </div>
 
-                <div id="sellerFields" class="extra-fields" style="display:none;">
+                <div id="sellerFields" class="extra-fields">
                     <div class="form-group">
                         <label>ระดับชั้น</label>
                         <select id="regGrade">
@@ -127,7 +129,7 @@
 
                 <button class="btn btn-primary btn-full" onclick="handleRegister()">
                     <span class="material-icons-round">how_to_reg</span>
-                    ลงทะเบียน
+                    ลงทะเบียนผู้ขาย
                 </button>
                 <p class="auth-switch">มีบัญชีแล้ว? <a href="#" onclick="showLogin()">เข้าสู่ระบบ</a></p>
             </div>
@@ -155,6 +157,10 @@
                     <span class="material-icons-round">fact_check</span>
                     <span>สภานักเรียน</span>
                 </button>
+                <button class="nav-link" id="navProfileMobile" style="display:none" onclick="openProfileModal()">
+                    <span class="material-icons-round">account_circle</span>
+                    <span>บัญชีผู้ใช้</span>
+                </button>
             </div>
             <div class="nav-user" id="navUser" onclick="openProfileModal()">
                 <div class="user-avatar" id="userAvatar">
@@ -168,14 +174,14 @@
             <div class="page-header">
                 <div class="page-title-area">
                     <h1>🛍️ ตลาดนัด KUSK</h1>
-                    <p>สินค้ามือสองคุณภาพดี จากเพื่อนสู่เพื่อน (วันเปิดตลาด 24, 25, 26 ส.ค. 2569)</p>
+                    <p>สินค้ามือสองคุณภาพดี จากเพื่อนสู่เพื่อน (วันเปิดตลาด 24, 26 ส.ค. 2569)</p>
                 </div>
                 <div class="market-stats" id="marketStats">
                     <div class="stat-card">
                         <span class="material-icons-round">inventory</span>
                         <div>
                             <span class="stat-number" id="statProducts">0</span>
-                            <span class="stat-label">สินค้า</span>
+                            <span class="stat-label">สินค้า (พร้อมขาย)</span>
                         </div>
                     </div>
                     <div class="stat-card">
@@ -206,26 +212,32 @@
                     <button class="chip" data-category="others" onclick="filterByCategory('others', 'market')">📦 อื่นๆ</button>
                 </div>
                 <div class="price-filter">
-                    <label>วันที่ขาย:</label>
-                    <select id="dateFilter" onchange="filterProducts()">
-                        <option value="all">ทุกวัน (24-26 ส.ค.)</option>
-                        <option value="24">24 ส.ค. 2569</option>
-                        <option value="25">25 ส.ค. 2569</option>
-                        <option value="26">26 ส.ค. 2569</option>
-                    </select>
-                    <label>ราคา:</label>
-                    <select id="priceFilter" onchange="filterProducts()">
-                        <option value="all">ทุกราคา</option>
-                        <option value="0-50">0 - 50 บาท</option>
-                        <option value="50-100">50 - 100 บาท</option>
-                        <option value="100-300">100 - 300 บาท</option>
-                        <option value="300-400">300 - 400 บาท</option>
-                    </select>
-                    <select id="sortFilter" onchange="filterProducts()">
-                        <option value="newest">ใหม่สุด</option>
-                        <option value="price-low">ราคาต่ำ-สูง</option>
-                        <option value="price-high">ราคาสูง-ต่ำ</option>
-                    </select>
+                    <div class="filter-group-item">
+                        <label>📅 วันที่ขาย:</label>
+                        <select id="dateFilter" onchange="filterProducts()">
+                            <option value="all">ทุกวัน (24, 26 ส.ค.)</option>
+                            <option value="24">24 ส.ค. 2569</option>
+                            <option value="26">26 ส.ค. 2569</option>
+                        </select>
+                    </div>
+                    <div class="filter-group-item">
+                        <label>💰 ช่วงราคา:</label>
+                        <select id="priceFilter" onchange="filterProducts()">
+                            <option value="all">ทุกราคา</option>
+                            <option value="0-50">0 - 50 บาท</option>
+                            <option value="50-100">50 - 100 บาท</option>
+                            <option value="100-300">100 - 300 บาท</option>
+                            <option value="300-400">300 - 400 บาท</option>
+                        </select>
+                    </div>
+                    <div class="filter-group-item">
+                        <label>🔃 เรียงลำดับ:</label>
+                        <select id="sortFilter" onchange="filterProducts()">
+                            <option value="newest">ใหม่สุด</option>
+                            <option value="price-low">ราคาต่ำ-สูง</option>
+                            <option value="price-high">ราคาสูง-ต่ำ</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -373,9 +385,14 @@
 
             <!-- Section 2: Seller Management -->
             <div id="councilSectionSellers" class="council-section" style="display:none;">
-                <div class="section-header">
-                    <h2>รายชื่อพ่อค้า/แม่ค้าในระบบ</h2>
-                    <p>กำหนดรหัสโต๊ะ และระงับ/ยกเลิกระงับบัญชีผู้ขายชั่วคราว</p>
+                <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+                    <div>
+                        <h2>รายชื่อพ่อค้า/แม่ค้าในระบบ</h2>
+                        <p>กำหนดรหัสโต๊ะ ระงับสิทธิ์ผู้ขาย หรือนำเข้าบัญชีผู้ขายหลายราย</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openBulkImportModal()">
+                        <span class="material-icons-round">group_add</span> นำเข้าผู้ขายหลายราย (Bulk Import)
+                    </button>
                 </div>
                 <div class="search-box" style="margin: 1rem 0;">
                     <span class="material-icons-round">search</span>
@@ -398,7 +415,6 @@
                         <label>เลือกวันที่ขาย:</label>
                         <select id="reportDateSelect" onchange="renderDailyReport()">
                             <option value="24">24 สิงหาคม 2569</option>
-                            <option value="25">25 สิงหาคม 2569</option>
                             <option value="26">26 สิงหาคม 2569</option>
                         </select>
                     </div>
@@ -466,9 +482,6 @@
                     <div class="checkbox-group">
                         <label class="checkbox-label">
                             <input type="checkbox" class="product-sell-date" value="24" checked> 24 ส.ค. 2569
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" class="product-sell-date" value="25" checked> 25 ส.ค. 2569
                         </label>
                         <label class="checkbox-label">
                             <input type="checkbox" class="product-sell-date" value="26" checked> 26 ส.ค. 2569
@@ -644,6 +657,38 @@
                 <button class="btn btn-danger btn-full" onclick="handleLogout()">
                     <span class="material-icons-round">logout</span>
                     ออกจากระบบ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Import Users Modal -->
+    <div id="bulkImportModal" class="modal">
+        <div class="modal-overlay" onclick="closeBulkImportModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>นำเข้าบัญชีผู้ขายแบบกลุ่ม (Bulk Import)</h2>
+                <button class="btn-icon" onclick="closeBulkImportModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.75rem;">
+                    วางตารางข้อมูลผู้ขายที่ต้องการสร้างบัญชี (1 คนต่อ 1 บรรทัด)<br>
+                    <strong>รูปแบบ:</strong> <code>ชื่อ-นามสกุล, ชื่อผู้ใช้, รหัสผ่าน, ระดับชั้น, รหัสโต๊ะ</code>
+                </p>
+                <div class="form-group">
+                    <textarea id="bulkImportInput" style="width:100%; height:160px; font-family:monospace; font-size:0.85rem; padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--border);" placeholder="สมชาย ใจดี, somchai, 123456, ม.4, T-01&#10;สมหญิง รักดี, somying, 654321, ม.5, T-02"></textarea>
+                </div>
+                <div style="font-size:0.8rem; color:var(--text-muted); background:var(--bg-main); padding:0.5rem 0.75rem; border-radius:var(--radius-md);">
+                    💡 <strong>คำแนะนำ:</strong> สามารถคัดลอกจาก Excel หรือ Google Sheets แล้วนำมาวางในช่องนี้ได้ทันที (ใช้เครื่องหมายลูกน้ำ <code>,</code> หรือเว้นวรรคแบบ Tab คั่นระหว่างคอลัมน์ได้)
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeBulkImportModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="processBulkUserImport()">
+                    <span class="material-icons-round">group_add</span>
+                    ยืนยันนำเข้าข้อมูล
                 </button>
             </div>
         </div>

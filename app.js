@@ -323,6 +323,11 @@ function handleLogout() {
     document.getElementById('loginPassword').value = '';
 }
 
+function formatSellDates(dates) {
+    if (!dates || !Array.isArray(dates) || dates.length === 0) return '24, 26 ส.ค.';
+    return dates.map(d => `${d} ส.ค.`).join(', ');
+}
+
 // --- App Navigation & Setup ---
 
 function initApp() {
@@ -333,8 +338,12 @@ function initApp() {
     const user = state.currentUser;
     if (user.role === 'guest') {
         document.getElementById('navUser').style.display = 'none'; // Guests don't need profile
+        const mobileProfile = document.getElementById('navProfileMobile');
+        if(mobileProfile) mobileProfile.style.display = 'none';
     } else {
         document.getElementById('navUser').style.display = 'flex';
+        const mobileProfile = document.getElementById('navProfileMobile');
+        if(mobileProfile) mobileProfile.style.display = 'flex';
     }
 
     const navSeller = document.getElementById('navSeller');
@@ -1042,6 +1051,71 @@ function toggleSuspendSeller(sellerId, suspend) {
 }
 
 
+function openBulkImportModal() {
+    document.getElementById('bulkImportInput').value = '';
+    document.getElementById('bulkImportModal').classList.add('active');
+}
+
+function closeBulkImportModal() {
+    document.getElementById('bulkImportModal').classList.remove('active');
+}
+
+function processBulkUserImport() {
+    const rawText = document.getElementById('bulkImportInput').value.trim();
+    if (!rawText) {
+        showToast('กรุณากรอกข้อมูลผู้ขายที่ต้องการนำเข้า', 'error');
+        return;
+    }
+
+    const lines = rawText.split('\n');
+    let importedCount = 0;
+
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        // Split by comma or tab
+        const parts = trimmed.split(/[\t,]+/).map(p => p.trim());
+        if (parts.length < 3) return; // At least name, username, password
+
+        const name = parts[0];
+        const username = parts[1];
+        const password = parts[2];
+        const grade = parts[3] || 'ม.4';
+        const tableId = parts[4] || '';
+
+        // Check if username exists
+        const existingIndex = state.users.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+        
+        const sellerUser = {
+            id: existingIndex > -1 ? state.users[existingIndex].id : 'U' + Date.now() + Math.floor(Math.random() * 1000),
+            name,
+            username,
+            password,
+            role: 'seller',
+            grade,
+            tableId,
+            suspended: false,
+            image: 'https://via.placeholder.com/150'
+        };
+
+        if (existingIndex > -1) {
+            state.users[existingIndex] = { ...state.users[existingIndex], ...sellerUser };
+        } else {
+            state.users.push(sellerUser);
+        }
+
+        // Save to Firebase
+        db.ref('users/' + sellerUser.id).set(sellerUser);
+        importedCount++;
+    });
+
+    saveAllLocalData();
+    showToast(`นำเข้าบัญชีผู้ขายสำเร็จ ${importedCount} รายการ!`);
+    closeBulkImportModal();
+    renderCouncilSellers();
+}
+
 // --- Council Daily Product Export ---
 
 function renderDailyReport() {
@@ -1050,10 +1124,10 @@ function renderDailyReport() {
 
     const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
     
-    // Only approved or sold products scheduled for this date
+    // Only products approved for sale on this date (sold items from earlier days are excluded)
     let products = state.products.filter(p => {
-        if (p.status !== 'approved' && p.status !== 'sold') return false;
-        if (!p.sellDates || !Array.isArray(p.sellDates)) return true; // Default show if legacy
+        if (p.status !== 'approved') return false; 
+        if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
         return p.sellDates.includes(selectedDate);
     });
 
@@ -1222,16 +1296,17 @@ function filterProducts() {
 }
 
 function renderMarket() {
-    // Update Stats
-    const approvedProducts = state.products.filter(p => {
-        if (p.status !== 'approved' && p.status !== 'sold') return false;
+    // Update Stats: Count only products that are currently approved and available for sale (NOT sold)
+    const availableProducts = state.products.filter(p => {
+        if (p.status !== 'approved') return false;
         const seller = state.users.find(u => u.id === p.sellerId);
         return !(seller && seller.suspended);
     });
 
-    document.getElementById('statProducts').innerText = approvedProducts.length;
+    document.getElementById('statProducts').innerText = availableProducts.length;
     
-    const uniqueSellers = new Set(approvedProducts.map(p => p.sellerId));
+    // Count unique active sellers who have at least 1 available product
+    const uniqueSellers = new Set(availableProducts.map(p => p.sellerId));
     document.getElementById('statSellers').innerText = uniqueSellers.size;
 
     filterProducts();
