@@ -18,7 +18,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // --- State Management ---
-const SPECIAL_CODE = "AAA";
+const SPECIAL_CODE = "ILOVEMYJOB";
 
 let state = {
     currentUser: null, 
@@ -344,7 +344,7 @@ function handleLogout() {
 }
 
 function formatSellDates(dates) {
-    if (!dates || !Array.isArray(dates) || dates.length === 0) return '24, 26 ส.ค.';
+    if (!dates || !Array.isArray(dates) || dates.length === 0) return '24, 25, 26 ส.ค.';
     return dates.map(d => `${d} ส.ค.`).join(', ');
 }
 
