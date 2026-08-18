@@ -1020,15 +1020,20 @@ function renderCouncilSellers() {
                                 `<span class="status-badge-active"><span class="material-icons-round" style="font-size:14px">check_circle</span>ปกติ</span>`
                             }
                         </td>
-                        <td>
-                            ${s.suspended ? 
-                                `<button class="btn btn-success" style="padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="toggleSuspendSeller('${s.id}', false)">
-                                    <span class="material-icons-round">check</span> ปลดระงับ
-                                 </button>` : 
-                                `<button class="btn btn-danger" style="padding:0.4rem 0.8rem; font-size:0.85rem;" onclick="toggleSuspendSeller('${s.id}', true)">
-                                    <span class="material-icons-round">block</span> ระงับบัญชี
-                                 </button>`
-                            }
+                        <td style="white-space:nowrap;">
+                            <div style="display:flex; gap:0.35rem; align-items:center;">
+                                ${s.suspended ? 
+                                    `<button class="btn btn-success" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="toggleSuspendSeller('${s.id}', false)">
+                                        <span class="material-icons-round" style="font-size:15px">check</span> ปลดระงับ
+                                     </button>` : 
+                                    `<button class="btn btn-warning" style="padding:0.35rem 0.65rem; font-size:0.8rem; background:var(--warning); border-color:var(--warning); color:white;" onclick="toggleSuspendSeller('${s.id}', true)">
+                                        <span class="material-icons-round" style="font-size:15px">block</span> ระงับบัญชี
+                                     </button>`
+                                }
+                                <button class="btn btn-danger" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="deleteSellerAccount('${s.id}', '${s.name}')">
+                                    <span class="material-icons-round" style="font-size:15px">delete</span> ลบบัญชี
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `).join('')}
@@ -1051,14 +1056,44 @@ function saveSellerTableId(sellerId) {
 }
 
 function toggleSuspendSeller(sellerId, suspend) {
-    const actionText = suspend ? 'ระงับบัญชีผู้ขายนี้ชั่วคราว' : 'ปลดการระงับบัญชีผู้ขายนี้';
+    const actionText = suspend ? 'ระงับบัญชีผู้ขายนี้ชั่วคราว (สินค้าทั้งหมดของผู้ขายจะถูกซ่อนออกจากตลาด)' : 'ปลดการระงับบัญชีผู้ขายนี้';
     if (confirm(`คุณต้องการ ${actionText} ใช่หรือไม่?`)) {
+        const user = state.users.find(u => u.id === sellerId);
+        if (user) user.suspended = suspend;
+        saveAllLocalData();
+
         db.ref('users/' + sellerId).update({ suspended: suspend }).then(() => {
-            showToast(suspend ? 'ระงับบัญชีผู้ขายแล้ว' : 'ปลดระงับบัญชีผู้ขายแล้ว');
+            showToast(suspend ? 'ระงับบัญชีผู้ขายแล้ว (ซ่อนสินค้าออกจากตลาดเรียบร้อย)' : 'ปลดระงับบัญชีผู้ขายแล้ว');
+            renderCouncilSellers();
+            renderMarket();
         }).catch(err => {
             showToast('เกิดข้อผิดพลาดในการปรับสถานะบัญชี', 'error');
             console.error(err);
         });
+    }
+}
+
+function deleteSellerAccount(sellerId, sellerName) {
+    if (confirm(`คุณต้องการ "ลบบัญชีผู้ขาย" ของ ${sellerName} ใช่หรือไม่?\n\n⚠️ การลบจะลบบัญชีผู้ขายและสินค้าทั้งหมดของผู้ขายรายนี้ออกจากระบบถาวร และจะไม่สามารถกู้คืนได้`)) {
+        // 1. Remove user from Firebase
+        db.ref('users/' + sellerId).remove();
+
+        // 2. Remove seller's products from Firebase
+        const sellerProducts = state.products.filter(p => p.sellerId === sellerId);
+        sellerProducts.forEach(p => {
+            db.ref('products/' + p.id).remove();
+        });
+
+        // 3. Remove from local state
+        state.users = state.users.filter(u => u.id !== sellerId);
+        state.products = state.products.filter(p => p.sellerId !== sellerId);
+
+        saveAllLocalData();
+        showToast(`ลบบัญชีผู้ขาย "${sellerName}" และสินค้าทั้งหมดเรียบร้อยแล้ว`);
+
+        renderCouncilSellers();
+        renderMarket();
+        if (typeof renderDailyReport === 'function') renderDailyReport();
     }
 }
 
@@ -1136,9 +1171,11 @@ function renderDailyReport() {
 
     const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
     
-    // Only products approved for sale on this date (sold items from earlier days are excluded)
+    // Only products approved for sale on this date (sold items and suspended/deleted sellers are excluded)
     let products = state.products.filter(p => {
         if (p.status !== 'approved') return false; 
+        const seller = state.users.find(u => u.id === p.sellerId);
+        if (!seller || seller.suspended) return false;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
         return p.sellDates.includes(selectedDate);
     });
