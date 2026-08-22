@@ -701,105 +701,117 @@ function closeProductModal() {
 }
 
 function saveProduct() {
-    const id = document.getElementById('editProductId').value;
-    const name = document.getElementById('productName').value.trim();
-    const category = document.getElementById('productCategory').value;
-    const originalPrice = parseInt(document.getElementById('productOriginalPrice').value);
-    const price = parseInt(document.getElementById('productPrice').value);
-    const defects = document.getElementById('productDefects').value.trim();
-    const quantityType = document.querySelector('input[name="productQuantityType"]:checked').value;
-    const quantity = quantityType === 'multiple' ? parseInt(document.getElementById('productQuantity').value) : 1;
+    try {
+        if (!state.currentUser) {
+            showToast('กรุณาเข้าสู่ระบบใหม่ก่อนเพิ่มสินค้า', 'error');
+            return;
+        }
 
-    // Get checked sell dates
-    const sellDates = Array.from(document.querySelectorAll('.product-sell-date:checked')).map(cb => cb.value);
+        const id = document.getElementById('editProductId').value;
+        const name = document.getElementById('productName').value.trim();
+        const category = document.getElementById('productCategory').value;
+        const originalPrice = parseInt(document.getElementById('productOriginalPrice').value);
+        const price = parseInt(document.getElementById('productPrice').value);
+        const defects = document.getElementById('productDefects').value.trim();
+        
+        const qTypeEl = document.querySelector('input[name="productQuantityType"]:checked');
+        const quantityType = qTypeEl ? qTypeEl.value : 'single';
+        const quantity = quantityType === 'multiple' ? parseInt(document.getElementById('productQuantity').value) : 1;
 
-    // Specific validations with exact feedback toasts
-    if (!tempProductImage) {
-        showToast('กรุณาเลือกรูปภาพสินค้า', 'error');
-        return;
-    }
-    if (!name) {
-        showToast('กรุณากรอกชื่อสินค้า', 'error');
-        return;
-    }
-    if (!category) {
-        showToast('กรุณาเลือกประเภทสินค้า', 'error');
-        return;
-    }
-    if (isNaN(originalPrice)) {
-        showToast('กรุณากรอกราคาเดิม (ราคาเต็มมือหนึ่งหรือตอนซื้อใหม่)', 'error');
-        return;
-    }
-    if (isNaN(price)) {
-        showToast('กรุณากรอกราคาขายจริง', 'error');
-        return;
-    }
-    if (quantityType === 'multiple' && (isNaN(quantity) || quantity < 1)) {
-        showToast('กรุณากรอกจำนวนสินค้าให้ถูกต้อง', 'error');
-        return;
-    }
-    if (sellDates.length === 0) {
-        showToast('กรุณาเลือกวันที่นำสินค้ามาขายอย่างน้อย 1 วัน', 'error');
-        return;
-    }
+        // Get checked sell dates
+        const sellDates = Array.from(document.querySelectorAll('.product-sell-date:checked')).map(cb => cb.value);
 
-    // Price rules validation
-    if (price > 400) {
-        showToast('ราคาขายจริงต้องไม่เกิน 400 บาทเท่านั้น', 'error');
-        return;
-    }
+        // Specific validations with exact feedback toasts
+        if (!tempProductImage) {
+            showToast('กรุณาเลือกรูปภาพสินค้า', 'error');
+            return;
+        }
+        if (!name) {
+            showToast('กรุณากรอกชื่อสินค้า', 'error');
+            return;
+        }
+        if (!category) {
+            showToast('กรุณาเลือกประเภทสินค้า', 'error');
+            return;
+        }
+        if (isNaN(originalPrice)) {
+            showToast('กรุณากรอกราคาเดิม (ราคาเต็มมือหนึ่งหรือตอนซื้อใหม่)', 'error');
+            return;
+        }
+        if (isNaN(price)) {
+            showToast('กรุณากรอกราคาขายจริง', 'error');
+            return;
+        }
+        if (quantityType === 'multiple' && (isNaN(quantity) || quantity < 1)) {
+            showToast('กรุณากรอกจำนวนสินค้าให้ถูกต้อง', 'error');
+            return;
+        }
+        if (sellDates.length === 0) {
+            showToast('กรุณาเลือกวันที่นำสินค้ามาขายอย่างน้อย 1 วัน', 'error');
+            return;
+        }
 
-    if (price >= originalPrice) {
-        showToast('ราคาขายจริงต้องน้อยกว่าราคาเดิม (ไม่สามารถเท่ากับหรือแพงกว่าได้)', 'error');
-        return;
-    }
+        // Price rules validation
+        if (price > 400) {
+            showToast('ราคาขายจริงต้องไม่เกิน 400 บาทเท่านั้น', 'error');
+            return;
+        }
 
-    let productData;
-    if (id) {
-        // Edit existing
-        const index = state.products.findIndex(p => p.id === id);
-        if (index > -1) {
+        if (price >= originalPrice) {
+            showToast('ราคาขายจริงต้องน้อยกว่าราคาเดิม (ไม่สามารถเท่ากับหรือแพงกว่าได้)', 'error');
+            return;
+        }
+
+        let productData;
+        if (id) {
+            // Edit existing
+            const index = state.products.findIndex(p => p.id === id);
+            if (index > -1) {
+                productData = {
+                    ...state.products[index],
+                    name, category, price, originalPrice, sellDates, defects, quantityType, quantity,
+                    image: tempProductImage,
+                    status: 'pending', // Reset to pending after edit
+                    revisionNote: null,
+                    updatedAt: new Date().toISOString()
+                };
+            }
+        } else {
+            // Add new
             productData = {
-                ...state.products[index],
+                id: 'P' + Date.now(),
+                sellerId: (state.currentUser && state.currentUser.id) ? state.currentUser.id : 'seller_anon',
                 name, category, price, originalPrice, sellDates, defects, quantityType, quantity,
                 image: tempProductImage,
-                status: 'pending', // Reset to pending after edit
-                revisionNote: null,
-                updatedAt: new Date().toISOString()
+                status: 'pending',
+                createdAt: new Date().toISOString()
             };
         }
-    } else {
-        // Add new
-        productData = {
-            id: 'P' + Date.now(),
-            sellerId: state.currentUser.id,
-            name, category, price, originalPrice, sellDates, defects, quantityType, quantity,
-            image: tempProductImage,
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        };
-    }
 
-    if (productData) {
-        // Save to local state first
-        const pIndex = state.products.findIndex(p => p.id === productData.id);
-        if (pIndex > -1) {
-            state.products[pIndex] = productData;
-        } else {
-            state.products.push(productData);
+        if (productData) {
+            // Save to local state first
+            const pIndex = state.products.findIndex(p => p.id === productData.id);
+            if (pIndex > -1) {
+                state.products[pIndex] = productData;
+            } else {
+                state.products.push(productData);
+            }
+            saveAllLocalData();
+
+            db.ref('products/' + productData.id).set(productData).then(() => {
+                showToast(id ? 'อัปเดตสินค้าและส่งตรวจสอบแล้ว' : 'เพิ่มสินค้าและส่งตรวจสอบแล้ว');
+                closeProductModal();
+                renderCurrentPage();
+            }).catch(err => {
+                console.warn('Firebase error saving product (saved locally):', err);
+                showToast(id ? 'อัปเดตสินค้าเรียบร้อยแล้ว' : 'เพิ่มสินค้าเรียบร้อยแล้ว');
+                closeProductModal();
+                renderCurrentPage();
+            });
         }
-        saveAllLocalData();
-
-        db.ref('products/' + productData.id).set(productData).then(() => {
-            showToast(id ? 'อัปเดตสินค้าและส่งตรวจสอบแล้ว' : 'เพิ่มสินค้าและส่งตรวจสอบแล้ว');
-            closeProductModal();
-            renderCurrentPage();
-        }).catch(err => {
-            console.warn('Firebase error saving product (saved locally):', err);
-            showToast(id ? 'อัปเดตสินค้าเรียบร้อยแล้ว' : 'เพิ่มสินค้าเรียบร้อยแล้ว');
-            closeProductModal();
-            renderCurrentPage();
-        });
+    } catch (err) {
+        console.error('saveProduct error:', err);
+        showToast('เกิดข้อผิดพลาดในการบันทึกสินค้า: ' + (err.message || err), 'error');
     }
 }
 
