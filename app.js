@@ -292,19 +292,45 @@ function handleRegister() {
 }
 
 
-function handleLogin() {
-    const inputName = document.getElementById('loginUsername').value.trim();
-    const password = document.getElementById('loginPassword').value;
+async function handleLogin() {
+    const rawName = document.getElementById('loginUsername').value;
+    const rawPass = document.getElementById('loginPassword').value;
+
+    const inputName = (rawName || '').trim().replace(/\s+/g, ' ');
+    const password = (rawPass || '').trim();
 
     if (!inputName || !password) {
         showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
         return;
     }
 
-    const user = state.users.find(u => 
-        (u.name.toLowerCase() === inputName.toLowerCase() || (u.username && u.username.toLowerCase() === inputName.toLowerCase())) && 
-        u.password === password
-    );
+    const matchUser = (u) => {
+        if (!u) return false;
+        const uName = (u.name || '').trim().replace(/\s+/g, ' ');
+        const uUsername = (u.username || '').trim().replace(/\s+/g, ' ');
+        const uPass = (u.password || '').toString().trim();
+
+        const isNameMatch = uName.toLowerCase() === inputName.toLowerCase() || uUsername.toLowerCase() === inputName.toLowerCase();
+        const isPassMatch = uPass === password;
+        return isNameMatch && isPassMatch;
+    };
+
+    let user = state.users.find(matchUser);
+
+    // Fallback: If not found in current local state, fetch live users from Firebase!
+    if (!user) {
+        try {
+            const snapshot = await db.ref('users').once('value');
+            const data = snapshot.val();
+            if (data) {
+                state.users = Object.values(data);
+                localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+                user = state.users.find(matchUser);
+            }
+        } catch (e) {
+            console.warn('Firebase login fallback error:', e);
+        }
+    }
 
     if (user) {
         if (user.suspended) {
@@ -315,9 +341,9 @@ function handleLogin() {
         saveLocalUser();
         initApp();
         showToast('เข้าสู่ระบบสำเร็จ');
-        if(user.role !== 'guest') closeProfileModal();
+        if (user.role !== 'guest') closeProfileModal();
     } else {
-        showToast('ชื่อ-นามสกุล หรือ รหัสผ่านไม่ถูกต้อง', 'error');
+        showToast('ชื่อ-นามสกุล หรือ รหัสผ่านไม่ถูกต้อง (กรุณาเช็กตัวพิมพ์ใหญ่-เล็ก หรือเว้นวรรคในมือถือ)', 'error');
     }
 }
 

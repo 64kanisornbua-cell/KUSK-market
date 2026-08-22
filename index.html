@@ -43,12 +43,12 @@
                 <h2 style="font-size:1.1rem; margin-bottom:0.75rem;">เข้าสู่ระบบสมาชิก</h2>
                 <div class="form-group">
                     <label>ชื่อ-นามสกุล</label>
-                    <input type="text" id="loginUsername" placeholder="กรอกชื่อ-นามสกุล">
+                    <input type="text" id="loginUsername" placeholder="กรอกชื่อ-นามสกุล" autocorrect="off" autocapitalize="none" spellcheck="false">
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่าน</label>
                     <div class="password-input-wrapper">
-                        <input type="password" id="loginPassword" placeholder="กรอกรหัสผ่าน">
+                        <input type="password" id="loginPassword" placeholder="กรอกรหัสผ่าน" autocorrect="off" autocapitalize="none" spellcheck="false">
                         <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('loginPassword', 'loginPassIcon')">
                             <span class="material-icons-round" id="loginPassIcon">visibility</span>
                         </button>
