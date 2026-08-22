@@ -20,9 +20,14 @@ const db = firebase.database();
 // --- State Management ---
 const SPECIAL_CODE = "ILOVEMYJOB";
 
+const INITIAL_USERS = [
+    { id: 'u_council_1', name: 'สภานักเรียน KUSK', username: 'สภานักเรียน KUSK', role: 'council', password: '123' },
+    { id: 'u_kritamet', name: 'กฤตเมธ เพชรยวน', username: 'กฤตเมธ เพชรยวน', role: 'seller', password: '07303', grade: 'ม.5', tableId: 'T-01' }
+];
+
 let state = {
     currentUser: null, 
-    users: [], 
+    users: [...INITIAL_USERS], 
     products: [], 
     currentCategory: 'all',
     currentCategoryCouncil: 'all',
@@ -45,6 +50,20 @@ function togglePasswordVisibility(inputId, iconId) {
     }
 }
 
+// Helper to merge user lists safely without losing local/initial users
+function mergeUsers(newUsers) {
+    if (!Array.isArray(newUsers)) return;
+    const map = new Map();
+    [...INITIAL_USERS, ...(state.users || []), ...newUsers].forEach(u => {
+        if (u && typeof u === 'object' && (u.id || u.name)) {
+            const key = (u.id || u.name).toString().toLowerCase();
+            map.set(key, u);
+        }
+    });
+    state.users = Array.from(map.values());
+    try { localStorage.setItem('kusk_local_users', JSON.stringify(state.users)); } catch(e){}
+}
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('kusk_currentUser');
@@ -55,7 +74,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load local users fallback
     const localUsers = localStorage.getItem('kusk_local_users');
     if (localUsers) {
-        try { state.users = JSON.parse(localUsers); } catch(e){}
+        try { 
+            const parsed = JSON.parse(localUsers); 
+            mergeUsers(parsed);
+        } catch(e){}
     }
 
     // Load local products fallback
@@ -69,18 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
         db.ref('users').once('value').then(snapshot => {
             const data = snapshot.val();
             if (data) {
-                state.users = Object.values(data).filter(u => u && typeof u === 'object' && u.name);
-                localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+                mergeUsers(Object.values(data));
             }
-        }).catch(err => console.warn('Init user fetch error:', err));
+        }).catch(err => console.warn('Init user fetch error (using fallback):', err));
     }
     
     // Listen for users from Firebase
     db.ref('users').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            state.users = Object.values(data).filter(u => u && typeof u === 'object' && u.name);
-            localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+            mergeUsers(Object.values(data));
         }
         if(state.currentUser && state.currentUser.role !== 'guest') {
             const updatedUser = state.users.find(u => u.id === state.currentUser.id);
