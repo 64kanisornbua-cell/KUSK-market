@@ -713,12 +713,31 @@ function saveProduct() {
     // Get checked sell dates
     const sellDates = Array.from(document.querySelectorAll('.product-sell-date:checked')).map(cb => cb.value);
 
-    // Validation
-    if (!tempProductImage || !name || !category || isNaN(price) || isNaN(originalPrice) || (quantityType === 'multiple' && (isNaN(quantity) || quantity < 1))) {
-        showToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วนและใส่รูปภาพ', 'error');
+    // Specific validations with exact feedback toasts
+    if (!tempProductImage) {
+        showToast('กรุณาเลือกรูปภาพสินค้า', 'error');
         return;
     }
-
+    if (!name) {
+        showToast('กรุณากรอกชื่อสินค้า', 'error');
+        return;
+    }
+    if (!category) {
+        showToast('กรุณาเลือกประเภทสินค้า', 'error');
+        return;
+    }
+    if (isNaN(originalPrice)) {
+        showToast('กรุณากรอกราคาเดิม (ราคาเต็มมือหนึ่งหรือตอนซื้อใหม่)', 'error');
+        return;
+    }
+    if (isNaN(price)) {
+        showToast('กรุณากรอกราคาขายจริง', 'error');
+        return;
+    }
+    if (quantityType === 'multiple' && (isNaN(quantity) || quantity < 1)) {
+        showToast('กรุณากรอกจำนวนสินค้าให้ถูกต้อง', 'error');
+        return;
+    }
     if (sellDates.length === 0) {
         showToast('กรุณาเลือกวันที่นำสินค้ามาขายอย่างน้อย 1 วัน', 'error');
         return;
