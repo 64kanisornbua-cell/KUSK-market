@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     db.ref('users').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            state.users = Object.values(data);
+            state.users = Object.values(data).filter(u => u && typeof u === 'object' && u.name);
             localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
         }
         if(state.currentUser && state.currentUser.role !== 'guest') {
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     db.ref('products').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            state.products = Object.values(data);
+            state.products = Object.values(data).filter(p => p && typeof p === 'object' && p.id && p.name);
             localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
         }
         renderCurrentPage();
@@ -211,8 +211,8 @@ function handleRegister() {
     const nameInput = document.getElementById('regName');
     const passwordInput = document.getElementById('regPassword');
 
-    const name = nameInput ? nameInput.value.trim() : '';
-    const password = passwordInput ? passwordInput.value : '';
+    const name = nameInput ? String(nameInput.value || '').normalize('NFC').trim().replace(/\s+/g, ' ') : '';
+    const password = passwordInput ? String(passwordInput.value || '').normalize('NFC').trim() : '';
 
     // 1. Validation check for required fields
     if (!name) {
@@ -228,10 +228,13 @@ function handleRegister() {
     }
 
     // 2. Validation check for duplicate name
-    const existingUser = state.users.find(u => 
-        u.name.toLowerCase() === name.toLowerCase() || 
-        (u.username && u.username.toLowerCase() === name.toLowerCase())
-    );
+    const cleanName = name.toLowerCase();
+    const existingUser = state.users.find(u => {
+        if (!u) return false;
+        const uName = String(u.name || '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+        const uUsername = String(u.username || '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+        return uName === cleanName || uUsername === cleanName;
+    });
     if (existingUser) {
         showToast(`ลงทะเบียนไม่สำเร็จ: ชื่อ-นามสกุล "${name}" มีผู้ใช้งานในระบบแล้ว`, 'error');
         return;
@@ -300,8 +303,8 @@ async function handleLogin() {
         const rawName = usernameEl ? usernameEl.value : '';
         const rawPass = passwordEl ? passwordEl.value : '';
 
-        const inputName = (rawName || '').normalize('NFC').trim().replace(/\s+/g, ' ');
-        const password = (rawPass || '').normalize('NFC').trim();
+        const inputName = String(rawName != null ? rawName : '').normalize('NFC').trim().replace(/\s+/g, ' ');
+        const password = String(rawPass != null ? rawPass : '').normalize('NFC').trim();
 
         if (!inputName || !password) {
             showToast('กรุณากรอกชื่อ-นามสกุลและรหัสผ่านให้ครบถ้วน', 'error');
@@ -310,12 +313,22 @@ async function handleLogin() {
 
         const matchUser = (u) => {
             if (!u) return false;
-            const uName = (u.name || '').normalize('NFC').trim().replace(/\s+/g, ' ');
-            const uUsername = (u.username || '').normalize('NFC').trim().replace(/\s+/g, ' ');
-            const uPass = (u.password || '').toString().normalize('NFC').trim();
+
+            const uNameStr = String(u.name != null ? u.name : '');
+            const uUserStr = String(u.username != null ? u.username : '');
+            const uPassStr = String(u.password != null ? u.password : '');
+
+            const uName = uNameStr.normalize('NFC').trim().replace(/\s+/g, ' ');
+            const uUsername = uUserStr.normalize('NFC').trim().replace(/\s+/g, ' ');
+            const uPass = uPassStr.normalize('NFC').trim();
 
             const isNameMatch = uName.toLowerCase() === inputName.toLowerCase() || uUsername.toLowerCase() === inputName.toLowerCase();
-            const isPassMatch = uPass === password;
+            
+            // Flexibly match password (handles leading 0 if stored as number, e.g. 07303 vs 7303)
+            const passNoZero = password.replace(/^0+/, '');
+            const uPassNoZero = uPass.replace(/^0+/, '');
+            const isPassMatch = (uPass === password) || (uPass === passNoZero) || (uPassNoZero === passNoZero);
+
             return isNameMatch && isPassMatch;
         };
 
