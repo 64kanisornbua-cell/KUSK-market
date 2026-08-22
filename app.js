@@ -324,6 +324,14 @@ async function handleLogin() {
             return;
         }
 
+        // Make sure local users are loaded if state.users is empty
+        if (!state.users || state.users.length === 0) {
+            const localUsers = localStorage.getItem('kusk_local_users');
+            if (localUsers) {
+                try { state.users = JSON.parse(localUsers); } catch(e){}
+            }
+        }
+
         const matchUser = (u) => {
             if (!u) return false;
 
@@ -354,19 +362,24 @@ async function handleLogin() {
         };
 
         let user = (state.users || []).find(matchUser);
+        let hadQuotaError = false;
 
-        // Fallback: If not found in current local state, fetch live users from Firebase!
+        // Fallback: If not found in current local state, fetch live users from Firebase (safely catching Quota errors)!
         if (!user && typeof db !== 'undefined') {
             try {
                 const snapshot = await db.ref('users').once('value');
                 const data = snapshot.val();
                 if (data) {
-                    state.users = Object.values(data);
+                    state.users = Object.values(data).filter(u => u && typeof u === 'object' && u.name);
                     localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
                     user = state.users.find(matchUser);
                 }
             } catch (e) {
-                console.warn('Firebase login fallback error:', e);
+                console.warn('Firebase login fallback error (quota/network):', e);
+                const errMsg = String(e && e.message ? e.message : e);
+                if (errMsg.includes('quota') || errMsg.includes('Quota')) {
+                    hadQuotaError = true;
+                }
             }
         }
 
@@ -380,6 +393,8 @@ async function handleLogin() {
             initApp();
             showToast('เข้าสู่ระบบสำเร็จ');
             if (user.role !== 'guest') closeProfileModal();
+        } else if (hadQuotaError) {
+            showToast('โควต้าฐานข้อมูลออนไลน์เต็มชั่วคราว (ระบบจะใช้อนุญาตจากข้อมูลในเครื่อง)', 'warning');
         } else {
             showToast('ชื่อ-นามสกุล หรือ รหัสผ่านไม่ถูกต้อง', 'error');
         }
@@ -538,17 +553,53 @@ function formatSellDates(dates) {
 
 // --- Product Management (Seller) ---
 
+function compressImage(file, callback) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 600;
+            const MAX_HEIGHT = 600;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            callback(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
 let tempProductImage = '';
 function previewProductImage(input) {
     if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            tempProductImage = e.target.result;
-            document.getElementById('productImagePreview').src = tempProductImage;
-            document.getElementById('productImagePreview').style.display = 'block';
-            document.getElementById('productImagePlaceholder').style.display = 'none';
-        }
-        reader.readAsDataURL(input.files[0]);
+        compressImage(input.files[0], (compressedDataUrl) => {
+            tempProductImage = compressedDataUrl;
+            const preview = document.getElementById('productImagePreview');
+            const placeholder = document.getElementById('productImagePlaceholder');
+            if (preview) {
+                preview.src = tempProductImage;
+                preview.style.display = 'block';
+            }
+            if (placeholder) placeholder.style.display = 'none';
+        });
     }
 }
 
