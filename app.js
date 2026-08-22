@@ -293,57 +293,65 @@ function handleRegister() {
 
 
 async function handleLogin() {
-    const rawName = document.getElementById('loginUsername').value;
-    const rawPass = document.getElementById('loginPassword').value;
+    try {
+        const usernameEl = document.getElementById('loginUsername');
+        const passwordEl = document.getElementById('loginPassword');
 
-    const inputName = (rawName || '').trim().replace(/\s+/g, ' ');
-    const password = (rawPass || '').trim();
+        const rawName = usernameEl ? usernameEl.value : '';
+        const rawPass = passwordEl ? passwordEl.value : '';
 
-    if (!inputName || !password) {
-        showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
-        return;
-    }
+        const inputName = (rawName || '').normalize('NFC').trim().replace(/\s+/g, ' ');
+        const password = (rawPass || '').normalize('NFC').trim();
 
-    const matchUser = (u) => {
-        if (!u) return false;
-        const uName = (u.name || '').trim().replace(/\s+/g, ' ');
-        const uUsername = (u.username || '').trim().replace(/\s+/g, ' ');
-        const uPass = (u.password || '').toString().trim();
-
-        const isNameMatch = uName.toLowerCase() === inputName.toLowerCase() || uUsername.toLowerCase() === inputName.toLowerCase();
-        const isPassMatch = uPass === password;
-        return isNameMatch && isPassMatch;
-    };
-
-    let user = state.users.find(matchUser);
-
-    // Fallback: If not found in current local state, fetch live users from Firebase!
-    if (!user) {
-        try {
-            const snapshot = await db.ref('users').once('value');
-            const data = snapshot.val();
-            if (data) {
-                state.users = Object.values(data);
-                localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
-                user = state.users.find(matchUser);
-            }
-        } catch (e) {
-            console.warn('Firebase login fallback error:', e);
-        }
-    }
-
-    if (user) {
-        if (user.suspended) {
-            showToast('บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อสภานักเรียน', 'error');
+        if (!inputName || !password) {
+            showToast('กรุณากรอกชื่อ-นามสกุลและรหัสผ่านให้ครบถ้วน', 'error');
             return;
         }
-        state.currentUser = user;
-        saveLocalUser();
-        initApp();
-        showToast('เข้าสู่ระบบสำเร็จ');
-        if (user.role !== 'guest') closeProfileModal();
-    } else {
-        showToast('ชื่อ-นามสกุล หรือ รหัสผ่านไม่ถูกต้อง (กรุณาเช็กตัวพิมพ์ใหญ่-เล็ก หรือเว้นวรรคในมือถือ)', 'error');
+
+        const matchUser = (u) => {
+            if (!u) return false;
+            const uName = (u.name || '').normalize('NFC').trim().replace(/\s+/g, ' ');
+            const uUsername = (u.username || '').normalize('NFC').trim().replace(/\s+/g, ' ');
+            const uPass = (u.password || '').toString().normalize('NFC').trim();
+
+            const isNameMatch = uName.toLowerCase() === inputName.toLowerCase() || uUsername.toLowerCase() === inputName.toLowerCase();
+            const isPassMatch = uPass === password;
+            return isNameMatch && isPassMatch;
+        };
+
+        let user = (state.users || []).find(matchUser);
+
+        // Fallback: If not found in current local state, fetch live users from Firebase!
+        if (!user && typeof db !== 'undefined') {
+            try {
+                const snapshot = await db.ref('users').once('value');
+                const data = snapshot.val();
+                if (data) {
+                    state.users = Object.values(data);
+                    localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+                    user = state.users.find(matchUser);
+                }
+            } catch (e) {
+                console.warn('Firebase login fallback error:', e);
+            }
+        }
+
+        if (user) {
+            if (user.suspended) {
+                showToast('บัญชีของคุณถูกระงับชั่วคราว กรุณาติดต่อสภานักเรียน', 'error');
+                return;
+            }
+            state.currentUser = user;
+            saveLocalUser();
+            initApp();
+            showToast('เข้าสู่ระบบสำเร็จ');
+            if (user.role !== 'guest') closeProfileModal();
+        } else {
+            showToast('ชื่อ-นามสกุล หรือ รหัสผ่านไม่ถูกต้อง', 'error');
+        }
+    } catch (err) {
+        console.error('handleLogin error:', err);
+        showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -1149,16 +1157,39 @@ function processBulkUserImport() {
 
         // Split by comma or tab
         const parts = trimmed.split(/[\t,]+/).map(p => p.trim());
-        if (parts.length < 3) return; // At least name, username, password
+        if (parts.length < 2) return;
 
-        const name = parts[0];
-        const username = parts[1];
-        const password = parts[2];
-        const grade = parts[3] || 'ม.4';
-        const tableId = parts[4] || '';
+        let name = parts[0];
+        let username = name;
+        let password = '';
+        let grade = 'ม.4';
+        let tableId = '';
+
+        if (parts.length === 2) {
+            // Format: ชื่อ-นามสกุล, รหัสผ่าน
+            password = parts[1];
+        } else if (parts.length === 3) {
+            // Format: ชื่อ-นามสกุล, รหัสผ่าน, ระดับชั้น
+            password = parts[1];
+            grade = parts[2];
+        } else if (parts.length === 4) {
+            // Format: ชื่อ-นามสกุล, รหัสผ่าน, ระดับชั้น, รหัสโต๊ะ
+            password = parts[1];
+            grade = parts[2];
+            tableId = parts[3];
+        } else if (parts.length >= 5) {
+            // Format: ชื่อ-นามสกุล, username, รหัสผ่าน, ระดับชั้น, รหัสโต๊ะ
+            username = parts[1];
+            password = parts[2];
+            grade = parts[3];
+            tableId = parts[4];
+        }
 
         // Check if username exists
-        const existingIndex = state.users.findIndex(u => u.username.toLowerCase() === username.toLowerCase());
+        const existingIndex = state.users.findIndex(u => 
+            u.name.toLowerCase() === name.toLowerCase() || 
+            (u.username && u.username.toLowerCase() === username.toLowerCase())
+        );
         
         const sellerUser = {
             id: existingIndex > -1 ? state.users[existingIndex].id : 'U' + Date.now() + Math.floor(Math.random() * 1000),
@@ -1168,8 +1199,7 @@ function processBulkUserImport() {
             role: 'seller',
             grade,
             tableId,
-            suspended: false,
-            image: 'https://via.placeholder.com/150'
+            suspended: false
         };
 
         if (existingIndex > -1) {
@@ -1234,6 +1264,7 @@ function renderDailyReport() {
                     <tr>
                         <th style="width:50px;">ลำดับ</th>
                         <th>ชื่อสินค้า</th>
+                        <th style="text-align:center;">จำนวน</th>
                         <th>ผู้ขาย (ระดับชั้น)</th>
                         <th>รหัสโต๊ะ</th>
                         <th>ราคาขายจริง (บาท)</th>
@@ -1245,10 +1276,12 @@ function renderDailyReport() {
                         const seller = state.users.find(u => u.id === p.sellerId);
                         const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : 'ผู้ขายที่ไม่ระบุ';
                         const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
+                        const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
                         return `
                             <tr>
                                 <td>${index + 1}</td>
-                                <td><strong>${p.name}</strong> ${p.quantityType === 'multiple' ? `(มี ${p.quantity} ชิ้น)` : ''}</td>
+                                <td><strong>${p.name}</strong></td>
+                                <td style="text-align:center;"><span style="background:rgba(79,70,229,0.08); color:var(--primary); font-weight:600; padding:0.2rem 0.55rem; border-radius:var(--radius-md); font-size:0.85rem;">${qtyText}</span></td>
                                 <td>${sellerName}</td>
                                 <td><code>${tableIdText}</code></td>
                                 <td style="font-weight:700; color:var(--primary);">฿${formatPrice(p.price)}</td>
@@ -1282,13 +1315,14 @@ function copyReportTable() {
     }
 
     let text = `ตารางสินค้า KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569\n`;
-    text += `ลำดับ\tชื่อสินค้า\tชื่อคนขาย\tรหัสโต๊ะ\tราคา (บาท)\n`;
+    text += `ลำดับ\tชื่อสินค้า\tจำนวน\tชื่อคนขาย\tรหัสโต๊ะ\tราคาขายจริง (บาท)\tราคาเดิม (บาท)\n`;
 
     products.forEach((p, index) => {
         const seller = state.users.find(u => u.id === p.sellerId);
         const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : '-';
         const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
-        text += `${index + 1}\t${p.name}\t${sellerName}\t${tableIdText}\t${p.price}\n`;
+        const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
+        text += `${index + 1}\t${p.name}\t${qtyText}\t${sellerName}\t${tableIdText}\t${p.price}\t${p.originalPrice || p.price}\n`;
     });
 
     navigator.clipboard.writeText(text).then(() => {
