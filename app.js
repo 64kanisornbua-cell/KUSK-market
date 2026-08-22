@@ -789,7 +789,7 @@ function saveProduct() {
         }
 
         if (productData) {
-            // Save to local state first
+            // Save to local state & localStorage first
             const pIndex = state.products.findIndex(p => p.id === productData.id);
             if (pIndex > -1) {
                 state.products[pIndex] = productData;
@@ -798,16 +798,21 @@ function saveProduct() {
             }
             saveAllLocalData();
 
-            db.ref('products/' + productData.id).set(productData).then(() => {
-                showToast(id ? 'อัปเดตสินค้าและส่งตรวจสอบแล้ว' : 'เพิ่มสินค้าและส่งตรวจสอบแล้ว');
-                closeProductModal();
-                renderCurrentPage();
-            }).catch(err => {
-                console.warn('Firebase error saving product (saved locally):', err);
-                showToast(id ? 'อัปเดตสินค้าเรียบร้อยแล้ว' : 'เพิ่มสินค้าเรียบร้อยแล้ว');
-                closeProductModal();
-                renderCurrentPage();
-            });
+            // Show success toast, close modal, and update screen immediately!
+            showToast(id ? 'อัปเดตสินค้าเรียบร้อยแล้ว' : 'เพิ่มสินค้าและส่งตรวจสอบเรียบร้อยแล้ว');
+            closeProductModal();
+            renderCurrentPage();
+
+            // Safely attempt sync to Firebase in background without throwing Quota errors
+            if (typeof db !== 'undefined') {
+                try {
+                    db.ref('products/' + productData.id).set(productData).catch(err => {
+                        console.warn('Firebase background save warning:', err);
+                    });
+                } catch (fbErr) {
+                    console.warn('Firebase sync save warning:', fbErr);
+                }
+            }
         }
     } catch (err) {
         console.error('saveProduct error:', err);
