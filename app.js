@@ -385,7 +385,8 @@ async function handleLogin() {
         }
     } catch (err) {
         console.error('handleLogin error:', err);
-        showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง', 'error');
+        const detail = (err && err.message) ? err.message : String(err);
+        showToast('เกิดข้อผิดพลาดในการเข้าสู่ระบบ: ' + detail, 'error');
     }
 }
 
