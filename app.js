@@ -49,7 +49,7 @@ function togglePasswordVisibility(inputId, iconId) {
 document.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('kusk_currentUser');
     if (savedUser) {
-        state.currentUser = JSON.parse(savedUser);
+        try { state.currentUser = JSON.parse(savedUser); } catch(e){}
     }
 
     // Load local users fallback
@@ -62,6 +62,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const localProducts = localStorage.getItem('kusk_local_products');
     if (localProducts) {
         try { state.products = JSON.parse(localProducts); } catch(e){}
+    }
+
+    // Pre-fetch live users immediately on startup
+    if (typeof db !== 'undefined') {
+        db.ref('users').once('value').then(snapshot => {
+            const data = snapshot.val();
+            if (data) {
+                state.users = Object.values(data).filter(u => u && typeof u === 'object' && u.name);
+                localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+            }
+        }).catch(err => console.warn('Init user fetch error:', err));
     }
     
     // Listen for users from Firebase
@@ -320,7 +331,19 @@ async function handleLogin() {
             const uUsername = cleanStr(u.username);
             const uPass = cleanStr(u.password);
 
-            const isNameMatch = uName.toLowerCase() === inputName.toLowerCase() || uUsername.toLowerCase() === inputName.toLowerCase();
+            const inputNameLower = inputName.toLowerCase();
+            const inputNameNoSpace = inputNameLower.replace(/\s+/g, '');
+
+            const uNameLower = uName.toLowerCase();
+            const uNameNoSpace = uNameLower.replace(/\s+/g, '');
+
+            const uUserLower = uUsername.toLowerCase();
+            const uUserNoSpace = uUserLower.replace(/\s+/g, '');
+
+            const isNameMatch = (uNameLower === inputNameLower) ||
+                                (uNameNoSpace === inputNameNoSpace) ||
+                                (uUserLower === inputNameLower) ||
+                                (uUserNoSpace === inputNameNoSpace);
             
             // Flexibly match password (handles leading 0 if stored as number, e.g. 07303 vs 7303)
             const passNoZero = password.replace(/^0+/, '');
