@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e){}
     }
 
-    // Load local products fallback
+    // Load local products fallback & render immediately so screen is never empty on refresh
     const localProducts = localStorage.getItem('kusk_local_products');
     if (localProducts) {
         try { state.products = JSON.parse(localProducts); } catch(e){}
@@ -134,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, (error) => {
         console.warn('Firebase products read error (using local data):', error);
+        renderCurrentPage();
     });
 
     if (state.currentUser) {
