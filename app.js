@@ -303,8 +303,10 @@ async function handleLogin() {
         const rawName = usernameEl ? usernameEl.value : '';
         const rawPass = passwordEl ? passwordEl.value : '';
 
-        const inputName = String(rawName != null ? rawName : '').normalize('NFC').trim().replace(/\s+/g, ' ');
-        const password = String(rawPass != null ? rawPass : '').normalize('NFC').trim();
+        const cleanStr = (s) => String(s != null ? s : '').normalize('NFC').replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ').trim();
+
+        const inputName = cleanStr(rawName);
+        const password = cleanStr(rawPass);
 
         if (!inputName || !password) {
             showToast('กรุณากรอกชื่อ-นามสกุลและรหัสผ่านให้ครบถ้วน', 'error');
@@ -314,13 +316,9 @@ async function handleLogin() {
         const matchUser = (u) => {
             if (!u) return false;
 
-            const uNameStr = String(u.name != null ? u.name : '');
-            const uUserStr = String(u.username != null ? u.username : '');
-            const uPassStr = String(u.password != null ? u.password : '');
-
-            const uName = uNameStr.normalize('NFC').trim().replace(/\s+/g, ' ');
-            const uUsername = uUserStr.normalize('NFC').trim().replace(/\s+/g, ' ');
-            const uPass = uPassStr.normalize('NFC').trim();
+            const uName = cleanStr(u.name);
+            const uUsername = cleanStr(u.username);
+            const uPass = cleanStr(u.password);
 
             const isNameMatch = uName.toLowerCase() === inputName.toLowerCase() || uUsername.toLowerCase() === inputName.toLowerCase();
             
