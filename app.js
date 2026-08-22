@@ -398,11 +398,15 @@ function formatSellDates(dates) {
 // --- App Navigation & Setup ---
 
 function initApp() {
-    document.getElementById('authScreen').classList.remove('active');
-    document.getElementById('mainApp').classList.add('active');
+    const authScreen = document.getElementById('authScreen');
+    const mainApp = document.getElementById('mainApp');
+    if (authScreen) authScreen.classList.remove('active');
+    if (mainApp) mainApp.classList.add('active');
 
     // Setup Navigation
     const user = state.currentUser;
+    if (!user) return;
+
     const navProfile = document.getElementById('navProfile');
     const navSeller = document.getElementById('navSeller');
     const navCouncil = document.getElementById('navCouncil');
@@ -411,14 +415,16 @@ function initApp() {
     if (navSeller) navSeller.style.display = user.role === 'seller' ? 'flex' : 'none';
     if (navCouncil) navCouncil.style.display = user.role === 'council' ? 'flex' : 'none';
 
-    // Set Avatar
+    // Set Avatar (with null check)
     const avatarIcon = document.getElementById('userAvatar');
-    if (user.role === 'seller' && user.image) {
-        avatarIcon.innerHTML = `<img src="${user.image}" alt="Profile">`;
-    } else {
-        let iconName = 'person';
-        if(user.role === 'council') iconName = 'verified_user';
-        avatarIcon.innerHTML = `<span class="material-icons-round">${iconName}</span>`;
+    if (avatarIcon) {
+        if (user.role === 'seller' && user.image) {
+            avatarIcon.innerHTML = `<img src="${user.image}" alt="Profile">`;
+        } else {
+            let iconName = 'person';
+            if(user.role === 'council') iconName = 'verified_user';
+            avatarIcon.innerHTML = `<span class="material-icons-round">${iconName}</span>`;
+        }
     }
 
     // Default Page
