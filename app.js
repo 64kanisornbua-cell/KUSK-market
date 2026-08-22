@@ -170,8 +170,27 @@ function saveLocalUser() {
 }
 
 function saveAllLocalData() {
-    localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
-    localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
+    try {
+        localStorage.setItem('kusk_local_users', JSON.stringify(state.users));
+        localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
+    } catch(e){}
+}
+
+// Safely execute Firebase writes asynchronously isolated from UI
+function safeFirebaseSave(path, data) {
+    setTimeout(() => {
+        try {
+            if (typeof db !== 'undefined' && db && typeof db.ref === 'function') {
+                if (data === null) {
+                    db.ref(path).remove().catch(e => console.warn('FB remove warn:', e));
+                } else {
+                    db.ref(path).set(data).catch(e => console.warn('FB set warn:', e));
+                }
+            }
+        } catch (err) {
+            console.warn('Firebase safe save warning:', err);
+        }
+    }, 50);
 }
 
 // --- Image Compression Helper ---
@@ -804,17 +823,7 @@ function saveProduct() {
             renderCurrentPage();
 
             // Safely attempt sync to Firebase asynchronously outside current call stack
-            setTimeout(() => {
-                if (typeof db !== 'undefined') {
-                    try {
-                        db.ref('products/' + productData.id).set(productData).catch(err => {
-                            console.warn('Firebase background save warning:', err);
-                        });
-                    } catch (fbErr) {
-                        console.warn('Firebase sync save warning:', fbErr);
-                    }
-                }
-            }, 10);
+            safeFirebaseSave('products/' + productData.id, productData);
         }
     } catch (err) {
         console.error('saveProduct error:', err);
