@@ -803,16 +803,18 @@ function saveProduct() {
             closeProductModal();
             renderCurrentPage();
 
-            // Safely attempt sync to Firebase in background without throwing Quota errors
-            if (typeof db !== 'undefined') {
-                try {
-                    db.ref('products/' + productData.id).set(productData).catch(err => {
-                        console.warn('Firebase background save warning:', err);
-                    });
-                } catch (fbErr) {
-                    console.warn('Firebase sync save warning:', fbErr);
+            // Safely attempt sync to Firebase asynchronously outside current call stack
+            setTimeout(() => {
+                if (typeof db !== 'undefined') {
+                    try {
+                        db.ref('products/' + productData.id).set(productData).catch(err => {
+                            console.warn('Firebase background save warning:', err);
+                        });
+                    } catch (fbErr) {
+                        console.warn('Firebase sync save warning:', fbErr);
+                    }
                 }
-            }
+            }, 10);
         }
     } catch (err) {
         console.error('saveProduct error:', err);
