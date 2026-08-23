@@ -94,6 +94,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 mergeUsers(Object.values(data));
             }
         }).catch(err => console.warn('Init user fetch error (using fallback):', err));
+
+        db.ref('products').once('value').then(snapshot => {
+            const data = snapshot.val();
+            if (data) {
+                state.products = Object.values(data).filter(p => p && typeof p === 'object' && p.id && p.name);
+                localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
+                renderCurrentPage();
+            }
+        }).catch(err => console.warn('Init product fetch error (using fallback):', err));
     }
     
     // Listen for users from Firebase
@@ -127,6 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data) {
             state.products = Object.values(data).filter(p => p && typeof p === 'object' && p.id && p.name);
             localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
+        } else {
+            state.products = [];
+            localStorage.setItem('kusk_local_products', JSON.stringify([]));
         }
         renderCurrentPage();
         if (state.currentCouncilSection === 'report') {
