@@ -831,6 +831,9 @@ function saveProduct() {
             if (index > -1) {
                 productData = {
                     ...state.products[index],
+                    sellerName: (state.currentUser && state.currentUser.name) ? state.currentUser.name : (state.products[index].sellerName || ''),
+                    sellerGrade: (state.currentUser && state.currentUser.grade) ? state.currentUser.grade : (state.products[index].sellerGrade || ''),
+                    tableId: (state.currentUser && state.currentUser.tableId) ? state.currentUser.tableId : (state.products[index].tableId || ''),
                     name, category, price, originalPrice, sellDates, defects, quantityType, quantity,
                     image: tempProductImage,
                     status: 'pending', // Reset to pending after edit
@@ -843,6 +846,9 @@ function saveProduct() {
             productData = {
                 id: 'P' + Date.now(),
                 sellerId: (state.currentUser && state.currentUser.id) ? state.currentUser.id : 'seller_anon',
+                sellerName: (state.currentUser && state.currentUser.name) ? state.currentUser.name : '',
+                sellerGrade: (state.currentUser && state.currentUser.grade) ? state.currentUser.grade : '',
+                tableId: (state.currentUser && state.currentUser.tableId) ? state.currentUser.tableId : '',
                 name, category, price, originalPrice, sellDates, defects, quantityType, quantity,
                 image: tempProductImage,
                 status: 'pending',
@@ -1469,19 +1475,19 @@ function renderDailyReport() {
 
     const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
     
-    // Only products approved for sale on this date (sold items and suspended/deleted sellers are excluded)
+    // Only products approved for sale on this date (sold items and suspended sellers are excluded)
     let products = state.products.filter(p => {
         if (p.status !== 'approved') return false; 
         const seller = findSeller(p.sellerId);
-        if (!seller || seller.suspended) return false;
+        if (seller && seller.suspended) return false;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
         return p.sellDates.includes(selectedDate);
     });
 
     // Sort products by seller name so items of the same seller are grouped together
     products.sort((a, b) => {
-        const sellerA = (findSeller(a.sellerId)?.name || '').toLowerCase();
-        const sellerB = (findSeller(b.sellerId)?.name || '').toLowerCase();
+        const sellerA = (findSeller(a.sellerId)?.name || a.sellerName || a.sellerId || '').toLowerCase();
+        const sellerB = (findSeller(b.sellerId)?.name || b.sellerName || b.sellerId || '').toLowerCase();
         return sellerA.localeCompare(sellerB, 'th');
     });
 
@@ -1516,8 +1522,10 @@ function renderDailyReport() {
                 <tbody>
                     ${products.map((p, index) => {
                         const seller = findSeller(p.sellerId);
-                        const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : 'ผู้ขายที่ไม่ระบุ';
-                        const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
+                        const sName = seller ? seller.name : (p.sellerName || p.sellerId || 'ผู้ขายที่ไม่ระบุ');
+                        const sGrade = seller ? (seller.grade || '-') : (p.sellerGrade || '-');
+                        const tableIdText = (seller && seller.tableId) ? seller.tableId : (p.tableId || 'ยังไม่กำหนด');
+                        const sellerName = `${sName} (${sGrade})`;
                         const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
                         return `
                             <tr>
@@ -1546,8 +1554,8 @@ function copyReportTable() {
     });
 
     products.sort((a, b) => {
-        const sellerA = (findSeller(a.sellerId)?.name || '').toLowerCase();
-        const sellerB = (findSeller(b.sellerId)?.name || '').toLowerCase();
+        const sellerA = (findSeller(a.sellerId)?.name || a.sellerName || a.sellerId || '').toLowerCase();
+        const sellerB = (findSeller(b.sellerId)?.name || b.sellerName || b.sellerId || '').toLowerCase();
         return sellerA.localeCompare(sellerB, 'th');
     });
 
@@ -1561,8 +1569,10 @@ function copyReportTable() {
 
     products.forEach((p, index) => {
         const seller = findSeller(p.sellerId);
-        const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : '-';
-        const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
+        const sName = seller ? seller.name : (p.sellerName || p.sellerId || 'ผู้ขายที่ไม่ระบุ');
+        const sGrade = seller ? (seller.grade || '-') : (p.sellerGrade || '-');
+        const tableIdText = (seller && seller.tableId) ? seller.tableId : (p.tableId || 'ยังไม่กำหนด');
+        const sellerName = `${sName} (${sGrade})`;
         const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
         text += `${index + 1}\t${p.name}\t${qtyText}\t${sellerName}\t${tableIdText}\t${p.price}\t${p.originalPrice || p.price}\n`;
     });
