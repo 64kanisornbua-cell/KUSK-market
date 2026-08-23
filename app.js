@@ -1525,7 +1525,43 @@ function renderDailyReport() {
         return sellerA.localeCompare(sellerB, 'th');
     });
 
-    if (products.length === 0) {
+    // Generate Seller Status List
+    const allSellers = state.users.filter(u => u.role === 'seller' && !u.suspended);
+    allSellers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+
+    const sellerStatusList = allSellers.map((s) => {
+        const sellerProducts = state.products.filter(p => {
+            const matchingSeller = findSeller(p.sellerId);
+            return (matchingSeller && matchingSeller.id === s.id) || p.sellerId === s.id || p.sellerName === s.name;
+        });
+
+        const approvedProducts = sellerProducts.filter(p => {
+            if (p.status !== 'approved') return false;
+            if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
+            return p.sellDates.includes(selectedDate);
+        });
+
+        const pendingProducts = sellerProducts.filter(p => p.status === 'pending' || p.status === 'revision');
+
+        let statusBadge = '';
+        if (approvedProducts.length > 0) {
+            statusBadge = `<span style="background:rgba(16,185,129,0.12); color:#059669; font-weight:600; padding:0.25rem 0.65rem; border-radius:12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.25rem;"><span class="material-icons-round" style="font-size:14px;">check_circle</span> มีสินค้าขายอยู่ (${approvedProducts.length} รายการ)</span>`;
+        } else if (pendingProducts.length > 0) {
+            statusBadge = `<span style="background:rgba(245,158,11,0.12); color:#d97706; font-weight:600; padding:0.25rem 0.65rem; border-radius:12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.25rem;"><span class="material-icons-round" style="font-size:14px;">hourglass_empty</span> รอตรวจสินค้า (${pendingProducts.length} รายการ)</span>`;
+        } else {
+            statusBadge = `<span style="background:rgba(239,68,68,0.1); color:#dc2626; font-weight:500; padding:0.25rem 0.65rem; border-radius:12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.25rem;"><span class="material-icons-round" style="font-size:14px;">highlight_off</span> ยังไม่มีสินค้าขาย</span>`;
+        }
+
+        return {
+            seller: s,
+            totalProducts: sellerProducts.length,
+            approvedCount: approvedProducts.length,
+            pendingCount: pendingProducts.length,
+            statusBadge: statusBadge
+        };
+    });
+
+    if (products.length === 0 && sellerStatusList.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <span class="material-icons-round">find_in_page</span>
@@ -1536,45 +1572,85 @@ function renderDailyReport() {
     }
 
     container.innerHTML = `
-        <div style="padding:1.5rem;">
-            <div style="text-align:center; margin-bottom:1.5rem;">
-                <h2 style="font-size:1.5rem; font-weight:700;">ตารางสินค้า ตลาดนัด KUSK Market</h2>
+        <div style="padding:1rem 0;">
+            <!-- 1. Daily Products Table -->
+            <div style="text-align:center; margin-bottom:1.25rem;">
+                <h2 style="font-size:1.4rem; font-weight:700;">📦 ตารางสินค้า ตลาดนัด KUSK Market</h2>
                 <p style="color:var(--text-secondary);">ประจำวันที่ ${selectedDate} สิงหาคม 2569 (จำนวนทั้งหมด ${products.length} รายการ)</p>
             </div>
-            <table class="custom-table" id="dailyReportTable">
-                <thead>
-                    <tr>
-                        <th style="width:50px;">ลำดับ</th>
-                        <th>ชื่อสินค้า</th>
-                        <th style="text-align:center;">จำนวน</th>
-                        <th>ผู้ขาย (ระดับชั้น)</th>
-                        <th>รหัสโต๊ะ</th>
-                        <th>ราคาขายจริง (บาท)</th>
-                        <th>ราคาเดิม (บาท)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${products.map((p, index) => {
-                        const seller = findSeller(p.sellerId);
-                        const sName = seller ? seller.name : (p.sellerName || p.sellerId || 'ผู้ขายที่ไม่ระบุ');
-                        const sGrade = seller ? (seller.grade || '-') : (p.sellerGrade || '-');
-                        const tableIdText = (seller && seller.tableId) ? seller.tableId : (p.tableId || 'ยังไม่กำหนด');
-                        const sellerName = `${sName} (${sGrade})`;
-                        const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
-                        return `
+            
+            <div style="overflow-x:auto; margin-bottom:2.5rem;">
+                <table class="custom-table" id="dailyReportTable">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">ลำดับ</th>
+                            <th>ชื่อสินค้า</th>
+                            <th style="text-align:center;">จำนวน</th>
+                            <th>ชื่อผู้ขาย</th>
+                            <th>ระดับชั้น</th>
+                            <th>รหัสโต๊ะ</th>
+                            <th>ราคาขายจริง (บาท)</th>
+                            <th>ราคาเดิม (บาท)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${products.length > 0 ? products.map((p, index) => {
+                            const seller = findSeller(p.sellerId);
+                            const sName = seller ? seller.name : (p.sellerName || p.sellerId || 'ผู้ขายที่ไม่ระบุ');
+                            const sGrade = seller ? (seller.grade || '-') : (p.sellerGrade || '-');
+                            const tableIdText = (seller && seller.tableId) ? seller.tableId : (p.tableId || 'ยังไม่กำหนด');
+                            const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
+                            return `
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td><strong>${p.name}</strong></td>
+                                    <td style="text-align:center;"><span style="background:rgba(79,70,229,0.08); color:var(--primary); font-weight:600; padding:0.2rem 0.55rem; border-radius:var(--radius-md); font-size:0.85rem;">${qtyText}</span></td>
+                                    <td><strong>${sName}</strong></td>
+                                    <td><span style="background:rgba(107,114,128,0.1); color:var(--text-secondary); padding:0.15rem 0.5rem; border-radius:6px; font-size:0.85rem; font-weight:500;">${sGrade}</span></td>
+                                    <td><code>${tableIdText}</code></td>
+                                    <td style="font-weight:700; color:var(--primary);">฿${formatPrice(p.price)}</td>
+                                    <td style="color:var(--text-muted); text-decoration:line-through;">฿${formatPrice(p.originalPrice || p.price)}</td>
+                                </tr>
+                            `;
+                        }).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">ไม่มีรายการสินค้าอนุมัติในวันนี้</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 2. Seller Status Summary Table -->
+            <div style="text-align:center; margin-top:2rem; margin-bottom:1.25rem;">
+                <h2 style="font-size:1.3rem; font-weight:700;">🏪 ตารางสถานะการลงขายของผู้ขายทั้งหมด</h2>
+                <p style="color:var(--text-secondary);">สรุปการนำเข้าสินค้าของผู้ขายทุกราย ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวม ${sellerStatusList.length} คน)</p>
+            </div>
+
+            <div style="overflow-x:auto;">
+                <table class="custom-table" id="sellerStatusReportTable">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">ลำดับ</th>
+                            <th>ผู้ขาย (ชื่อ-นามสกุล)</th>
+                            <th>ระดับชั้น</th>
+                            <th>รหัสโต๊ะ</th>
+                            <th style="text-align:center;">สินค้าทั้งหมด</th>
+                            <th style="text-align:center;">ผ่านอนุมัติ</th>
+                            <th>สถานะการลงขาย</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sellerStatusList.map((item, index) => `
                             <tr>
                                 <td>${index + 1}</td>
-                                <td><strong>${p.name}</strong></td>
-                                <td style="text-align:center;"><span style="background:rgba(79,70,229,0.08); color:var(--primary); font-weight:600; padding:0.2rem 0.55rem; border-radius:var(--radius-md); font-size:0.85rem;">${qtyText}</span></td>
-                                <td>${sellerName}</td>
-                                <td><code>${tableIdText}</code></td>
-                                <td style="font-weight:700; color:var(--primary);">฿${formatPrice(p.price)}</td>
-                                <td style="color:var(--text-muted); text-decoration:line-through;">฿${formatPrice(p.originalPrice || p.price)}</td>
+                                <td><strong>${item.seller.name}</strong></td>
+                                <td><span style="background:rgba(107,114,128,0.1); color:var(--text-secondary); padding:0.15rem 0.5rem; border-radius:6px; font-size:0.85rem; font-weight:500;">${item.seller.grade || '-'}</span></td>
+                                <td><code>${item.seller.tableId || 'ยังไม่กำหนด'}</code></td>
+                                <td style="text-align:center; font-weight:600;">${item.totalProducts} รายการ</td>
+                                <td style="text-align:center; font-weight:700; color:var(--primary);">${item.approvedCount} รายการ</td>
+                                <td>${item.statusBadge}</td>
                             </tr>
-                        `;
-                    }).join('')}
-                </tbody>
-            </table>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
         </div>
     `;
 }
@@ -1599,16 +1675,15 @@ function copyReportTable() {
     }
 
     let text = `ตารางสินค้า KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569\n`;
-    text += `ลำดับ\tชื่อสินค้า\tจำนวน\tชื่อคนขาย\tรหัสโต๊ะ\tราคาขายจริง (บาท)\tราคาเดิม (บาท)\n`;
+    text += `ลำดับ\tชื่อสินค้า\tจำนวน\tชื่อคนขาย\tระดับชั้น\tรหัสโต๊ะ\tราคาขายจริง (บาท)\tราคาเดิม (บาท)\n`;
 
     products.forEach((p, index) => {
         const seller = findSeller(p.sellerId);
         const sName = seller ? seller.name : (p.sellerName || p.sellerId || 'ผู้ขายที่ไม่ระบุ');
         const sGrade = seller ? (seller.grade || '-') : (p.sellerGrade || '-');
         const tableIdText = (seller && seller.tableId) ? seller.tableId : (p.tableId || 'ยังไม่กำหนด');
-        const sellerName = `${sName} (${sGrade})`;
         const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
-        text += `${index + 1}\t${p.name}\t${qtyText}\t${sellerName}\t${tableIdText}\t${p.price}\t${p.originalPrice || p.price}\n`;
+        text += `${index + 1}\t${p.name}\t${qtyText}\t${sName}\t${sGrade}\t${tableIdText}\t${p.price}\t${p.originalPrice || p.price}\n`;
     });
 
     navigator.clipboard.writeText(text).then(() => {
