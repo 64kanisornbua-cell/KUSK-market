@@ -847,10 +847,32 @@ function undoSold(productId) {
     if(confirm('ต้องการยกเลิกสถานะขายแล้ว และนำกลับมาขายใหม่ใช่หรือไม่?')) {
         const product = state.products.find(p => p.id === productId);
         if (product) {
-            db.ref('products/' + product.id).update({ status: 'approved' }).then(() => {
-                showToast('นำสินค้ากลับมาขายใหม่แล้ว');
-            });
+            product.status = 'approved';
+            saveAllLocalData();
+            safeFirebaseSave('products/' + product.id + '/status', 'approved');
+            showToast('นำสินค้ากลับมาขายใหม่แล้ว');
+            renderSellerProducts();
+            renderMarket();
         }
+    }
+}
+
+function deleteProductBySeller(productId) {
+    const product = state.products.find(p => p.id === productId);
+    if (!product) return;
+
+    if (confirm(`คุณต้องการลบสินค้า "${product.name}" ออกจากระบบใช่หรือไม่?`)) {
+        // 1. Remove from local state
+        state.products = state.products.filter(p => p.id !== productId);
+        saveAllLocalData();
+
+        // 2. Remove from Firebase via safeFirebaseSave
+        safeFirebaseSave('products/' + productId, null);
+
+        // 3. UI Feedback & re-render
+        showToast(`ลบสินค้า "${product.name}" เรียบร้อยแล้ว`);
+        renderSellerProducts();
+        renderMarket();
     }
 }
 
@@ -915,6 +937,9 @@ function renderSellerProducts() {
                         <span class="material-icons-round">undo</span> ยกเลิกขาย
                     </button>` : ''
                 }
+                <button class="btn btn-outline" onclick="deleteProductBySeller('${p.id}')" style="color:var(--danger); border-color:var(--danger);">
+                    <span class="material-icons-round">delete</span> ลบ
+                </button>
             </div>
         </div>
     `).join('');
