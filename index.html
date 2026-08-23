@@ -373,11 +373,16 @@
                 <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
                     <div>
                         <h2>รายชื่อพ่อค้า/แม่ค้าในระบบ</h2>
-                        <p>กำหนดรหัสโต๊ะ ระงับสิทธิ์ผู้ขาย หรือนำเข้าบัญชีผู้ขายหลายราย</p>
+                        <p>กำหนดรหัสโต๊ะ แก้ไขระดับชั้น ตรวจดูสถานะการลงขาย หรือนำเข้าบัญชีผู้ขาย</p>
                     </div>
-                    <button class="btn btn-primary" onclick="openBulkImportModal()">
-                        <span class="material-icons-round">group_add</span> นำเข้าผู้ขายหลายราย (Bulk Import)
-                    </button>
+                    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <button class="btn btn-outline" onclick="copySellerStatusTable()">
+                            <span class="material-icons-round">content_copy</span> คัดลอกตารางผู้ขาย
+                        </button>
+                        <button class="btn btn-primary" onclick="openBulkImportModal()">
+                            <span class="material-icons-round">group_add</span> นำเข้าผู้ขายหลายราย (Bulk Import)
+                        </button>
+                    </div>
                 </div>
                 <div class="search-box" style="margin: 1rem 0;">
                     <span class="material-icons-round">search</span>
@@ -709,6 +714,6 @@
         <span id="toastMessage"></span>
     </div>
 
-    <script src="app.js?v=19.0"></script>
+    <script src="app.js?v=20.0"></script>
 </body>
 </html>
