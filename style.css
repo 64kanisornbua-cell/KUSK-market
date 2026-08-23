@@ -1787,9 +1787,9 @@ body {
         padding: 0.55rem 0.85rem !important;
         border-radius: 12px !important;
     }
-    .filter-group-item select {
-        font-size: 0.9rem !important;
-    }
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 

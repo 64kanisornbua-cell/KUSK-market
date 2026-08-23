@@ -64,6 +64,20 @@ function mergeUsers(newUsers) {
     try { localStorage.setItem('kusk_local_users', JSON.stringify(state.users)); } catch(e){}
 }
 
+function showInitialLoadingSpinner() {
+    const spinnerHTML = `
+        <div class="empty-state" style="padding: 3rem 1rem; width:100%; grid-column:1/-1;">
+            <span class="material-icons-round" style="font-size: 2.8rem; color: var(--primary); animation: spin 1s linear infinite; display:inline-block;">sync</span>
+            <h3 style="margin-top:0.75rem; font-size: 1rem; color: var(--text-secondary);">กำลังโหลดข้อมูลล่าสุด...</h3>
+        </div>
+    `;
+
+    ['marketProducts', 'sellerProducts', 'councilProducts'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = spinnerHTML;
+    });
+}
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     const savedUser = localStorage.getItem('kusk_currentUser');
@@ -80,37 +94,46 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e){}
     }
 
-    // Load local products fallback & render immediately so screen is never empty on refresh
-    const localProducts = localStorage.getItem('kusk_local_products');
-    if (localProducts) {
-        try { state.products = JSON.parse(localProducts); } catch(e){}
+    let isLiveProductsLoaded = false;
+
+    if (state.currentUser) {
+        if (state.currentUser.suspended) {
+            showToast('บัญชีของคุณถูกระงับชั่วคราว', 'error');
+            handleLogout();
+        } else {
+            initApp();
+        }
+    } else {
+        const authScreen = document.getElementById('authScreen');
+        if (authScreen) authScreen.classList.add('active');
     }
 
-    // Pre-fetch live users immediately on startup
+    // Show initial spinner while waiting for fresh online data
+    showInitialLoadingSpinner();
+
+    // Safety Timeout (2.5s): Fallback to local storage if network is slow/offline
+    setTimeout(() => {
+        if (!isLiveProductsLoaded) {
+            console.log('Firebase fetch timeout - loading local fallback');
+            const localProducts = localStorage.getItem('kusk_local_products');
+            if (localProducts) {
+                try { state.products = JSON.parse(localProducts); } catch(e){}
+            }
+            renderCurrentPage();
+        }
+    }, 2500);
+
+    // Pre-fetch & listen for live users from Firebase
     if (typeof db !== 'undefined') {
         db.ref('users').once('value').then(snapshot => {
             const data = snapshot.val();
-            if (data) {
-                mergeUsers(Object.values(data));
-            }
-        }).catch(err => console.warn('Init user fetch error (using fallback):', err));
-
-        db.ref('products').once('value').then(snapshot => {
-            const data = snapshot.val();
-            if (data) {
-                state.products = Object.values(data).filter(p => p && typeof p === 'object' && p.id && p.name);
-                localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
-                renderCurrentPage();
-            }
-        }).catch(err => console.warn('Init product fetch error (using fallback):', err));
+            if (data) mergeUsers(Object.values(data));
+        }).catch(err => console.warn('Init user fetch error:', err));
     }
     
-    // Listen for users from Firebase
     db.ref('users').on('value', (snapshot) => {
         const data = snapshot.val();
-        if (data) {
-            mergeUsers(Object.values(data));
-        }
+        if (data) mergeUsers(Object.values(data));
         if(state.currentUser && state.currentUser.role !== 'guest') {
             const updatedUser = state.users.find(u => u.id === state.currentUser.id);
             if(updatedUser) {
@@ -126,12 +149,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentCouncilSection === 'sellers') {
             renderCouncilSellers();
         }
-    }, (error) => {
-        console.warn('Firebase users read error (using local data):', error);
-    });
+    }, (error) => console.warn('Firebase users read error:', error));
 
-    // Listen for products from Firebase
+    // Listen for fresh live products directly from Firebase (Always Fresh First)
     db.ref('products').on('value', (snapshot) => {
+        isLiveProductsLoaded = true;
         const data = snapshot.val();
         if (data) {
             state.products = Object.values(data).filter(p => p && typeof p === 'object' && p.id && p.name);
@@ -145,20 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDailyReport();
         }
     }, (error) => {
-        console.warn('Firebase products read error (using local data):', error);
+        console.warn('Firebase products read error (using local fallback):', error);
+        isLiveProductsLoaded = true;
+        const localProducts = localStorage.getItem('kusk_local_products');
+        if (localProducts) {
+            try { state.products = JSON.parse(localProducts); } catch(e){}
+        }
         renderCurrentPage();
     });
-
-    if (state.currentUser) {
-        if (state.currentUser.suspended) {
-            showToast('บัญชีของคุณถูกระงับชั่วคราว', 'error');
-            handleLogout();
-        } else {
-            initApp();
-        }
-    } else {
-        document.getElementById('authScreen').classList.add('active');
-    }
 });
 
 function renderCurrentPage() {
