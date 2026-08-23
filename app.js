@@ -1618,9 +1618,14 @@ function renderDailyReport() {
             </div>
 
             <!-- 2. Seller Status Summary Table -->
-            <div style="text-align:center; margin-top:2rem; margin-bottom:1.25rem;">
-                <h2 style="font-size:1.3rem; font-weight:700;">🏪 ตารางสถานะการลงขายของผู้ขายทั้งหมด</h2>
-                <p style="color:var(--text-secondary);">สรุปการนำเข้าสินค้าของผู้ขายทุกราย ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวม ${sellerStatusList.length} คน)</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:2.5rem; margin-bottom:1.25rem;">
+                <div>
+                    <h2 style="font-size:1.3rem; font-weight:700;">🏪 ตารางสถานะการลงขายของผู้ขายทั้งหมด</h2>
+                    <p style="color:var(--text-secondary);">สรุปการนำเข้าสินค้าของผู้ขายทุกราย ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวม ${sellerStatusList.length} คน)</p>
+                </div>
+                <button class="btn btn-outline print-hide" onclick="copySellerStatusTable()" style="padding:0.4rem 0.85rem; font-size:0.85rem;">
+                    <span class="material-icons-round" style="font-size:16px;">content_copy</span> คัดลอกตารางผู้ขาย
+                </button>
             </div>
 
             <div style="overflow-x:auto;">
@@ -1687,7 +1692,56 @@ function copyReportTable() {
     });
 
     navigator.clipboard.writeText(text).then(() => {
-        showToast('คัดลอกตารางลง Clipboard แล้ว!');
+        showToast('คัดลอกตารางสินค้าลง Clipboard แล้ว!');
+    }).catch(err => {
+        showToast('ไม่สามารถคัดลอกได้', 'error');
+        console.error(err);
+    });
+}
+
+function copySellerStatusTable() {
+    const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
+    const allSellers = state.users.filter(u => u.role === 'seller' && !u.suspended);
+    allSellers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+
+    if (allSellers.length === 0) {
+        showToast('ไม่มีข้อมูลผู้ขายสำหรับคัดลอก', 'error');
+        return;
+    }
+
+    let text = `ตารางสถานะการลงขายของผู้ขาย KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569\n`;
+    text += `ลำดับ\tชื่อผู้ขาย\tระดับชั้น\tรหัสโต๊ะ\tสินค้าทั้งหมด\tผ่านอนุมัติ\tสถานะการลงขาย\n`;
+
+    allSellers.forEach((s, index) => {
+        const sellerProducts = state.products.filter(p => {
+            const matchingSeller = findSeller(p.sellerId);
+            return (matchingSeller && matchingSeller.id === s.id) || p.sellerId === s.id || p.sellerName === s.name;
+        });
+
+        const approvedProducts = sellerProducts.filter(p => {
+            if (p.status !== 'approved') return false;
+            if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
+            return p.sellDates.includes(selectedDate);
+        });
+
+        const pendingProducts = sellerProducts.filter(p => p.status === 'pending' || p.status === 'revision');
+
+        let statusText = '';
+        if (approvedProducts.length > 0) {
+            statusText = `มีสินค้าขายอยู่ (${approvedProducts.length} รายการ)`;
+        } else if (pendingProducts.length > 0) {
+            statusText = `รอตรวจสินค้า (${pendingProducts.length} รายการ)`;
+        } else {
+            statusText = `ยังไม่มีสินค้าขาย`;
+        }
+
+        const tableIdText = s.tableId || 'ยังไม่กำหนด';
+        const gradeText = s.grade || '-';
+        text += `${index + 1}\t${s.name}\t${gradeText}\t${tableIdText}\t${sellerProducts.length}\t${approvedProducts.length}\t${statusText}\n`;
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('คัดลอกตารางผู้ขายลง Clipboard แล้ว!');
     }).catch(err => {
         showToast('ไม่สามารถคัดลอกได้', 'error');
         console.error(err);

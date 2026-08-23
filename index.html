@@ -404,9 +404,12 @@
                             <option value="26">26 สิงหาคม 2569</option>
                         </select>
                     </div>
-                    <div style="display:flex; gap:0.5rem; margin-top: auto;">
+                    <div style="display:flex; gap:0.5rem; margin-top: auto; flex-wrap:wrap;">
                         <button class="btn btn-outline" onclick="copyReportTable()">
-                            <span class="material-icons-round">content_copy</span> คัดลอกตาราง
+                            <span class="material-icons-round">content_copy</span> คัดลอกตารางสินค้า
+                        </button>
+                        <button class="btn btn-outline" onclick="copySellerStatusTable()">
+                            <span class="material-icons-round">groups</span> คัดลอกตารางผู้ขาย
                         </button>
                         <button class="btn btn-primary" onclick="window.print()">
                             <span class="material-icons-round">print</span> พิมพ์ตาราง (PDF)
@@ -706,6 +709,6 @@
         <span id="toastMessage"></span>
     </div>
 
-    <script src="app.js?v=18.0"></script>
+    <script src="app.js?v=19.0"></script>
 </body>
 </html>
