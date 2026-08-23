@@ -1283,7 +1283,19 @@ function renderCouncilSellers() {
                             }
                             <strong>${s.name}</strong>
                         </td>
-                        <td>${s.grade || '-'}</td>
+                        <td>
+                            <select id="gradeSelect_${s.id}" class="table-input" style="padding:0.25rem 0.4rem; font-size:0.8rem; min-width:75px;" onchange="saveSellerGrade('${s.id}')">
+                                <option value="ป.4" ${s.grade === 'ป.4' ? 'selected' : ''}>ป.4</option>
+                                <option value="ป.5" ${s.grade === 'ป.5' ? 'selected' : ''}>ป.5</option>
+                                <option value="ป.6" ${s.grade === 'ป.6' ? 'selected' : ''}>ป.6</option>
+                                <option value="ม.1" ${s.grade === 'ม.1' ? 'selected' : ''}>ม.1</option>
+                                <option value="ม.2" ${s.grade === 'ม.2' ? 'selected' : ''}>ม.2</option>
+                                <option value="ม.3" ${s.grade === 'ม.3' ? 'selected' : ''}>ม.3</option>
+                                <option value="ม.4" ${s.grade === 'ม.4' || !s.grade ? 'selected' : ''}>ม.4</option>
+                                <option value="ม.5" ${s.grade === 'ม.5' ? 'selected' : ''}>ม.5</option>
+                                <option value="ม.6" ${s.grade === 'ม.6' ? 'selected' : ''}>ม.6</option>
+                            </select>
+                        </td>
                         <td>
                             <div style="display:flex; gap:0.25rem;">
                                 <input type="text" id="tableIdInput_${s.id}" value="${s.tableId || ''}" placeholder="เช่น T-01" class="table-input">
@@ -1320,17 +1332,39 @@ function renderCouncilSellers() {
     `;
 }
 
+function saveSellerGrade(sellerId) {
+    const select = document.getElementById(`gradeSelect_${sellerId}`);
+    if (!select) return;
+    const newGrade = select.value;
+
+    const seller = findSeller(sellerId);
+    if (seller) {
+        seller.grade = newGrade;
+        saveAllLocalData();
+        safeFirebaseSave('users/' + seller.id + '/grade', newGrade);
+        showToast(`อัปเดตระดับชั้นของ ${seller.name} เป็น ${newGrade} แล้ว`);
+        renderCurrentPage();
+    }
+}
+
 function saveSellerTableId(sellerId) {
     const input = document.getElementById(`tableIdInput_${sellerId}`);
+    const gradeSelect = document.getElementById(`gradeSelect_${sellerId}`);
     if (!input) return;
     const newTableId = input.value.trim();
+    const newGrade = gradeSelect ? gradeSelect.value : null;
 
     const seller = findSeller(sellerId);
     if (seller) {
         seller.tableId = newTableId;
+        if (newGrade) seller.grade = newGrade;
         saveAllLocalData();
-        safeFirebaseSave('users/' + seller.id + '/tableId', newTableId);
-        showToast('อัปเดตรหัสโต๊ะสำเร็จ');
+        safeFirebaseSave('users/' + seller.id, {
+            ...seller,
+            tableId: newTableId,
+            grade: seller.grade
+        });
+        showToast('อัปเดตข้อมูลผู้ขายสำเร็จ');
         renderCurrentPage();
     }
 }
