@@ -64,19 +64,14 @@ function mergeUsers(newUsers) {
     try { localStorage.setItem('kusk_local_users', JSON.stringify(state.users)); } catch(e){}
 }
 
-function showInitialLoadingSpinner() {
-    const spinnerHTML = `
-        <div class="empty-state" style="padding: 3rem 1rem; width:100%; grid-column:1/-1;">
-            <span class="material-icons-round" style="font-size: 2.8rem; color: var(--primary); animation: spin 1s linear infinite; display:inline-block;">sync</span>
-            <h3 style="margin-top:0.75rem; font-size: 1rem; color: var(--text-secondary);">กำลังโหลดข้อมูลล่าสุด...</h3>
-        </div>
-    `;
-
-    ['marketProducts', 'sellerProducts', 'councilProducts'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = spinnerHTML;
-    });
+function saveOnExit() {
+    try {
+        saveAllLocalData();
+        localStorage.setItem('kusk_cache_time', Date.now().toString());
+    } catch(e){}
 }
+window.addEventListener('beforeunload', saveOnExit);
+window.addEventListener('pagehide', saveOnExit);
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -94,8 +89,23 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e){}
     }
 
-    let isLiveProductsLoaded = false;
+    // Check cache timestamp. If cache is older than 30 mins, wipe stale local cache!
+    const cacheTimeStr = localStorage.getItem('kusk_cache_time');
+    if (cacheTimeStr) {
+        const cacheAge = Date.now() - parseInt(cacheTimeStr);
+        if (cacheAge > 30 * 60 * 1000) { // 30 minutes
+            console.log('Stale local cache cleared (> 30 mins)');
+            localStorage.removeItem('kusk_local_products');
+        }
+    }
 
+    // Load fresh local products fallback
+    const localProducts = localStorage.getItem('kusk_local_products');
+    if (localProducts) {
+        try { state.products = JSON.parse(localProducts); } catch(e){}
+    }
+
+    // Initialize UI and render immediately (Smooth & Fast)
     if (state.currentUser) {
         if (state.currentUser.suspended) {
             showToast('บัญชีของคุณถูกระงับชั่วคราว', 'error');
@@ -107,21 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const authScreen = document.getElementById('authScreen');
         if (authScreen) authScreen.classList.add('active');
     }
-
-    // Show initial spinner while waiting for fresh online data
-    showInitialLoadingSpinner();
-
-    // Safety Timeout (2.5s): Fallback to local storage if network is slow/offline
-    setTimeout(() => {
-        if (!isLiveProductsLoaded) {
-            console.log('Firebase fetch timeout - loading local fallback');
-            const localProducts = localStorage.getItem('kusk_local_products');
-            if (localProducts) {
-                try { state.products = JSON.parse(localProducts); } catch(e){}
-            }
-            renderCurrentPage();
-        }
-    }, 2500);
+    renderCurrentPage();
 
     // Pre-fetch & listen for live users from Firebase
     if (typeof db !== 'undefined') {
@@ -151,13 +147,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, (error) => console.warn('Firebase users read error:', error));
 
-    // Listen for fresh live products directly from Firebase (Always Fresh First)
+    // Listen for products directly from Firebase and update smoothly
     db.ref('products').on('value', (snapshot) => {
-        isLiveProductsLoaded = true;
         const data = snapshot.val();
         if (data) {
             state.products = Object.values(data).filter(p => p && typeof p === 'object' && p.id && p.name);
             localStorage.setItem('kusk_local_products', JSON.stringify(state.products));
+            localStorage.setItem('kusk_cache_time', Date.now().toString());
         } else {
             state.products = [];
             localStorage.setItem('kusk_local_products', JSON.stringify([]));
@@ -167,12 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDailyReport();
         }
     }, (error) => {
-        console.warn('Firebase products read error (using local fallback):', error);
-        isLiveProductsLoaded = true;
-        const localProducts = localStorage.getItem('kusk_local_products');
-        if (localProducts) {
-            try { state.products = JSON.parse(localProducts); } catch(e){}
-        }
+        console.warn('Firebase products read error (using local data):', error);
         renderCurrentPage();
     });
 });
