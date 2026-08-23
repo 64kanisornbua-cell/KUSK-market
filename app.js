@@ -851,9 +851,12 @@ function markAsSold(productId) {
     if(confirm('ยืนยันว่าสินค้านี้ขายออกแล้วใช่หรือไม่?')) {
         const product = state.products.find(p => p.id === productId);
         if (product) {
-            db.ref('products/' + product.id).update({ status: 'sold' }).then(() => {
-                showToast('ทำเครื่องหมายว่าขายแล้ว');
-            });
+            product.status = 'sold';
+            saveAllLocalData();
+            safeFirebaseSave('products/' + product.id + '/status', 'sold');
+            showToast('ทำเครื่องหมายว่าขายแล้ว');
+            renderSellerProducts();
+            renderMarket();
         }
     }
 }
@@ -1160,10 +1163,13 @@ function sendRevision() {
 
     const product = state.products.find(p => p.id === id);
     if (product) {
-        db.ref('products/' + product.id).update({ status: 'revision', revisionNote: note }).then(() => {
-            showToast('ส่งกลับให้ผู้ขายแก้ไขแล้ว', 'warning');
-            closeReviewModal();
-        });
+        product.status = 'revision';
+        product.revisionNote = note;
+        saveAllLocalData();
+        safeFirebaseSave('products/' + product.id, product);
+        showToast('ส่งกลับให้ผู้ขายแก้ไขแล้ว', 'warning');
+        closeReviewModal();
+        renderCurrentPage();
     }
 }
 
@@ -1172,10 +1178,13 @@ function approveProduct() {
     const product = state.products.find(p => p.id === id);
     
     if (product) {
-        db.ref('products/' + product.id).update({ status: 'approved', revisionNote: null }).then(() => {
-            showToast('อนุมัติสินค้าสำเร็จ สินค้าขึ้นตลาดแล้ว');
-            closeReviewModal();
-        });
+        product.status = 'approved';
+        product.revisionNote = null;
+        saveAllLocalData();
+        safeFirebaseSave('products/' + product.id, product);
+        showToast('อนุมัติสินค้าสำเร็จ สินค้าขึ้นตลาดแล้ว');
+        closeReviewModal();
+        renderCurrentPage();
     }
 }
 
@@ -1185,10 +1194,12 @@ function cancelApproval() {
         const product = state.products.find(p => p.id === id);
         
         if (product) {
-            db.ref('products/' + product.id).update({ status: 'pending' }).then(() => {
-                showToast('ยกเลิกอนุมัติสินค้าแล้ว');
-                closeReviewModal();
-            });
+            product.status = 'pending';
+            saveAllLocalData();
+            safeFirebaseSave('products/' + product.id, product);
+            showToast('ยกเลิกอนุมัติสินค้าแล้ว');
+            closeReviewModal();
+            renderCurrentPage();
         }
     }
 }
