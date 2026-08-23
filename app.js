@@ -584,6 +584,26 @@ function formatPrice(price) {
     return new Intl.NumberFormat('th-TH').format(price);
 }
 
+function findSeller(sellerId) {
+    if (!sellerId) return null;
+    const cleanId = String(sellerId).trim().toLowerCase();
+    
+    // 1. Match by exact ID
+    let seller = state.users.find(u => u && u.id && String(u.id).trim().toLowerCase() === cleanId);
+    if (seller) return seller;
+
+    // 2. Match by Name or Username fallback
+    const cleanNoSpace = cleanId.replace(/\s+/g, '');
+    seller = state.users.find(u => {
+        if (!u) return false;
+        const uName = String(u.name || '').trim().toLowerCase();
+        const uUser = String(u.username || '').trim().toLowerCase();
+        return uName === cleanId || uUser === cleanId || uName.replace(/\s+/g, '') === cleanNoSpace || uUser.replace(/\s+/g, '') === cleanNoSpace;
+    });
+
+    return seller;
+}
+
 function getCategoryName(catId) {
     const categories = {
         'clothing': '👕 เสื้อผ้า',
@@ -1030,7 +1050,7 @@ function renderCouncilProducts() {
     }
 
     container.innerHTML = productsToShow.map(p => {
-        const seller = state.users.find(u => u.id === p.sellerId);
+        const seller = findSeller(p.sellerId);
         const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
         return `
             <div class="product-card" onclick="openReviewModal('${p.id}')">
@@ -1058,7 +1078,7 @@ function renderCouncilProducts() {
 
 function openReviewModal(productId) {
     const product = state.products.find(p => p.id === productId);
-    const seller = state.users.find(u => u.id === product.sellerId);
+    const seller = product ? findSeller(product.sellerId) : null;
     
     if (!product) return;
 
@@ -1299,53 +1319,57 @@ function saveSellerTableId(sellerId) {
     if (!input) return;
     const newTableId = input.value.trim();
 
-    db.ref('users/' + sellerId).update({ tableId: newTableId }).then(() => {
+    const seller = findSeller(sellerId);
+    if (seller) {
+        seller.tableId = newTableId;
+        saveAllLocalData();
+        safeFirebaseSave('users/' + seller.id + '/tableId', newTableId);
         showToast('อัปเดตรหัสโต๊ะสำเร็จ');
-    }).catch(err => {
-        showToast('เกิดข้อผิดพลาดในการบันทึกรหัสโต๊ะ', 'error');
-        console.error(err);
-    });
+        renderCurrentPage();
+    }
 }
 
 function toggleSuspendSeller(sellerId, suspend) {
     const actionText = suspend ? 'ระงับบัญชีผู้ขายนี้ชั่วคราว (สินค้าทั้งหมดของผู้ขายจะถูกซ่อนออกจากตลาด)' : 'ปลดการระงับบัญชีผู้ขายนี้';
     if (confirm(`คุณต้องการ ${actionText} ใช่หรือไม่?`)) {
-        const user = state.users.find(u => u.id === sellerId);
-        if (user) user.suspended = suspend;
-        saveAllLocalData();
-
-        db.ref('users/' + sellerId).update({ suspended: suspend }).then(() => {
+        const user = findSeller(sellerId);
+        if (user) {
+            user.suspended = suspend;
+            saveAllLocalData();
+            safeFirebaseSave('users/' + user.id + '/suspended', suspend);
             showToast(suspend ? 'ระงับบัญชีผู้ขายแล้ว (ซ่อนสินค้าออกจากตลาดเรียบร้อย)' : 'ปลดระงับบัญชีผู้ขายแล้ว');
-            renderCouncilSellers();
-            renderMarket();
-        }).catch(err => {
-            showToast('เกิดข้อผิดพลาดในการปรับสถานะบัญชี', 'error');
-            console.error(err);
-        });
+            renderCurrentPage();
+        }
     }
 }
 
 function deleteSellerAccount(sellerId, sellerName) {
     if (confirm(`คุณต้องการ "ลบบัญชีผู้ขาย" ของ ${sellerName} ใช่หรือไม่?\n\n⚠️ การลบจะลบบัญชีผู้ขายและสินค้าทั้งหมดของผู้ขายรายนี้ออกจากระบบถาวร และจะไม่สามารถกู้คืนได้`)) {
-        // 1. Remove user from Firebase
-        db.ref('users/' + sellerId).remove();
+        const seller = findSeller(sellerId);
+        const targetId = seller ? seller.id : sellerId;
 
-        // 2. Remove seller's products from Firebase
-        const sellerProducts = state.products.filter(p => p.sellerId === sellerId);
+        // 1. Remove seller's products
+        const sellerProducts = state.products.filter(p => {
+            const s = findSeller(p.sellerId);
+            return (s && s.id === targetId) || p.sellerId === targetId;
+        });
         sellerProducts.forEach(p => {
-            db.ref('products/' + p.id).remove();
+            safeFirebaseSave('products/' + p.id, null);
         });
 
+        // 2. Remove user
+        safeFirebaseSave('users/' + targetId, null);
+
         // 3. Remove from local state
-        state.users = state.users.filter(u => u.id !== sellerId);
-        state.products = state.products.filter(p => p.sellerId !== sellerId);
+        state.users = state.users.filter(u => u.id !== targetId);
+        state.products = state.products.filter(p => {
+            const s = findSeller(p.sellerId);
+            return !(s && s.id === targetId) && p.sellerId !== targetId;
+        });
 
         saveAllLocalData();
         showToast(`ลบบัญชีผู้ขาย "${sellerName}" และสินค้าทั้งหมดเรียบร้อยแล้ว`);
-
-        renderCouncilSellers();
-        renderMarket();
-        if (typeof renderDailyReport === 'function') renderDailyReport();
+        renderCurrentPage();
     }
 }
 
@@ -1448,7 +1472,7 @@ function renderDailyReport() {
     // Only products approved for sale on this date (sold items and suspended/deleted sellers are excluded)
     let products = state.products.filter(p => {
         if (p.status !== 'approved') return false; 
-        const seller = state.users.find(u => u.id === p.sellerId);
+        const seller = findSeller(p.sellerId);
         if (!seller || seller.suspended) return false;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
         return p.sellDates.includes(selectedDate);
@@ -1456,8 +1480,8 @@ function renderDailyReport() {
 
     // Sort products by seller name so items of the same seller are grouped together
     products.sort((a, b) => {
-        const sellerA = (state.users.find(u => u.id === a.sellerId)?.name || '').toLowerCase();
-        const sellerB = (state.users.find(u => u.id === b.sellerId)?.name || '').toLowerCase();
+        const sellerA = (findSeller(a.sellerId)?.name || '').toLowerCase();
+        const sellerB = (findSeller(b.sellerId)?.name || '').toLowerCase();
         return sellerA.localeCompare(sellerB, 'th');
     });
 
@@ -1491,7 +1515,7 @@ function renderDailyReport() {
                 </thead>
                 <tbody>
                     ${products.map((p, index) => {
-                        const seller = state.users.find(u => u.id === p.sellerId);
+                        const seller = findSeller(p.sellerId);
                         const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : 'ผู้ขายที่ไม่ระบุ';
                         const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
                         const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
@@ -1522,8 +1546,8 @@ function copyReportTable() {
     });
 
     products.sort((a, b) => {
-        const sellerA = (state.users.find(u => u.id === a.sellerId)?.name || '').toLowerCase();
-        const sellerB = (state.users.find(u => u.id === b.sellerId)?.name || '').toLowerCase();
+        const sellerA = (findSeller(a.sellerId)?.name || '').toLowerCase();
+        const sellerB = (findSeller(b.sellerId)?.name || '').toLowerCase();
         return sellerA.localeCompare(sellerB, 'th');
     });
 
@@ -1536,7 +1560,7 @@ function copyReportTable() {
     text += `ลำดับ\tชื่อสินค้า\tจำนวน\tชื่อคนขาย\tรหัสโต๊ะ\tราคาขายจริง (บาท)\tราคาเดิม (บาท)\n`;
 
     products.forEach((p, index) => {
-        const seller = state.users.find(u => u.id === p.sellerId);
+        const seller = findSeller(p.sellerId);
         const sellerName = seller ? `${seller.name} (${seller.grade || '-'})` : '-';
         const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
         const qtyText = p.quantityType === 'multiple' ? `${p.quantity || 1} ชิ้น` : '1 ชิ้น';
@@ -1626,7 +1650,7 @@ function renderMarket() {
     // Update Stats: Count only products that are currently approved and available for sale (NOT sold)
     const availableProducts = state.products.filter(p => {
         if (p.status !== 'approved') return false;
-        const seller = state.users.find(u => u.id === p.sellerId);
+        const seller = findSeller(p.sellerId);
         return !(seller && seller.suspended);
     });
 
@@ -1654,7 +1678,7 @@ function renderMarketList(products) {
     }
 
     container.innerHTML = products.map(p => {
-        const seller = state.users.find(u => u.id === p.sellerId);
+        const seller = findSeller(p.sellerId);
         const tableIdText = seller && seller.tableId ? seller.tableId : 'ยังไม่กำหนด';
         return `
             <div class="product-card" onclick="openDetailModal('${p.id}')">
@@ -1683,7 +1707,7 @@ function renderMarketList(products) {
 
 function openDetailModal(productId) {
     const product = state.products.find(p => p.id === productId);
-    const seller = state.users.find(u => u.id === product.sellerId);
+    const seller = product ? findSeller(product.sellerId) : null;
     
     if (!product) return;
 
@@ -1745,14 +1769,17 @@ function closeDetailModal() {
 function openShopModal(sellerId) {
     closeDetailModal(); // Close current detail modal
     
-    const seller = state.users.find(u => u.id === sellerId);
+    const seller = findSeller(sellerId);
     if(!seller) return;
 
     const tableIdText = seller.tableId ? seller.tableId : 'ยังไม่กำหนดรหัสโต๊ะ';
     const displayShopName = seller.shopName ? seller.shopName : `ร้านของ ${seller.name}`;
     document.getElementById('shopModalTitle').innerText = `${displayShopName} (โต๊ะ ${tableIdText})`;
 
-    const sellerProducts = state.products.filter(p => p.sellerId === sellerId && (p.status === 'approved' || p.status === 'sold'));
+    const sellerProducts = state.products.filter(p => {
+        const s = findSeller(p.sellerId);
+        return s && s.id === seller.id && (p.status === 'approved' || p.status === 'sold');
+    });
 
     const body = document.getElementById('shopModalBody');
     
@@ -1827,19 +1854,16 @@ function saveSellerProfileSettings() {
     saveLocalUser();
     saveAllLocalData();
 
-    db.ref('users/' + state.currentUser.id).update({
+    safeFirebaseSave('users/' + state.currentUser.id, {
+        ...state.currentUser,
         shopName: shopName,
         image: state.currentUser.image || ''
-    }).then(() => {
-        showToast('อัปเดตข้อมูลร้านค้าเรียบร้อยแล้ว');
-        openProfileModal();
-        renderCurrentPage();
-    }).catch(err => {
-        console.warn('Firebase update error:', err);
-        showToast('อัปเดตข้อมูลร้านค้าเรียบร้อยแล้ว');
-        openProfileModal();
-        renderCurrentPage();
     });
+
+    showToast('อัปเดตข้อมูลร้านค้าเรียบร้อยแล้ว');
+    openProfileModal();
+    initApp();
+    renderCurrentPage();
 }
 
 // --- Profile Modal & Logic ---
@@ -1900,10 +1924,11 @@ function changePassword() {
 
     state.currentUser.password = newPw;
     saveLocalUser();
+    saveAllLocalData();
     
-    db.ref('users/' + state.currentUser.id).update({ password: newPw }).then(() => {
-        showToast('เปลี่ยนรหัสผ่านสำเร็จ');
-        document.getElementById('oldPassword').value = '';
-        document.getElementById('newPassword').value = '';
-    });
+    safeFirebaseSave('users/' + state.currentUser.id + '/password', newPw);
+
+    showToast('เปลี่ยนรหัสผ่านสำเร็จ');
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
 }
