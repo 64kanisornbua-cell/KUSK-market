@@ -162,16 +162,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderCurrentPage() {
-    const activePage = document.querySelector('.page.active');
-    if (!activePage) return;
-    const pageId = activePage.id;
-    if (pageId === 'marketPage') renderMarket();
-    if (pageId === 'sellerPage') renderSellerProducts();
-    if (pageId === 'councilPage') {
-        if (state.currentCouncilSection === 'products') renderCouncilProducts();
-        if (state.currentCouncilSection === 'sellers') renderCouncilSellers();
-        if (state.currentCouncilSection === 'report') renderDailyReport();
-    }
+    try { renderMarket(); } catch(e){}
+    try { 
+        if (state.currentUser && state.currentUser.role === 'seller') {
+            renderSellerProducts(); 
+        }
+    } catch(e){}
+    try { 
+        if (state.currentUser && state.currentUser.role === 'council') {
+            if (state.currentCouncilSection === 'products') renderCouncilProducts();
+            if (state.currentCouncilSection === 'sellers') renderCouncilSellers();
+            if (state.currentCouncilSection === 'report') renderDailyReport();
+        }
+    } catch(e){}
 }
 
 function saveLocalUser() {
