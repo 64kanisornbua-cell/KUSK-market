@@ -1607,6 +1607,12 @@ function renderDailyReport() {
         return sellerA.localeCompare(sellerB, 'th');
     });
 
+    // Calculate Total Physical Pieces
+    let totalPieces = 0;
+    products.forEach(p => {
+        totalPieces += (p.quantityType === 'multiple' ? (parseInt(p.quantity) || 1) : 1);
+    });
+
     // Generate Seller Status List
     const allSellers = state.users.filter(u => u.role === 'seller' && !u.suspended);
     allSellers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
@@ -1658,7 +1664,7 @@ function renderDailyReport() {
             <!-- 1. Daily Products Table -->
             <div style="text-align:center; margin-bottom:1.25rem;">
                 <h2 style="font-size:1.4rem; font-weight:700;">📦 ตารางสินค้า ตลาดนัด KUSK Market</h2>
-                <p style="color:var(--text-secondary);">ประจำวันที่ ${selectedDate} สิงหาคม 2569 (จำนวนทั้งหมด ${products.length} รายการ)</p>
+                <p style="color:var(--text-secondary);">ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวมทั้งหมด <strong>${products.length} รายการ</strong> / <strong>${totalPieces} ชิ้น</strong>)</p>
             </div>
             
             <div style="overflow-x:auto; margin-bottom:2.5rem;">
@@ -1761,7 +1767,12 @@ function copyReportTable() {
         return;
     }
 
-    let text = `ตารางสินค้า KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569\n`;
+    let totalPieces = 0;
+    products.forEach(p => {
+        totalPieces += (p.quantityType === 'multiple' ? (parseInt(p.quantity) || 1) : 1);
+    });
+
+    let text = `ตารางสินค้า KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวมทั้งหมด ${products.length} รายการ / ${totalPieces} ชิ้น)\n`;
     text += `ลำดับ\tชื่อสินค้า\tจำนวน\tชื่อคนขาย\tระดับชั้น\tรหัสโต๊ะ\tราคาขายจริง (บาท)\tราคาเดิม (บาท)\n`;
 
     products.forEach((p, index) => {
