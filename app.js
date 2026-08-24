@@ -1027,29 +1027,90 @@ function switchCouncilTab(tab) {
     renderCouncilProducts();
 }
 
-function renderCouncilProducts() {
-    const container = document.getElementById('councilProducts');
-    
-    // Update Stats
-    const pendingCount = state.products.filter(p => p.status === 'pending').length;
-    const approvedCount = state.products.filter(p => p.status === 'approved' || p.status === 'sold').length;
-    
-    document.getElementById('statPending').innerText = pendingCount;
-    document.getElementById('statApproved').innerText = approvedCount;
-    document.getElementById('pendingBadge').innerText = pendingCount;
-    document.getElementById('pendingBadge').style.display = pendingCount > 0 ? 'inline-block' : 'none';
+function updateCouncilCategoryChipCounts() {
+    const categoryCounts = { all: state.products.length };
+    state.products.forEach(p => {
+        if (p.category) {
+            categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
+        }
+    });
 
-    let productsToShow = state.products.filter(p => p.status === state.currentTab);
-    
-    if (state.currentCategoryCouncil !== 'all') {
-        productsToShow = productsToShow.filter(p => p.category === state.currentCategoryCouncil);
+    const categoryNames = {
+        'all': 'ทั้งหมด',
+        'clothing': '👕 เสื้อผ้า',
+        'books': '📚 หนังสือ',
+        'electronics': '📱 อิเล็กทรอนิกส์',
+        'stationery': '✏️ เครื่องเขียน',
+        'accessories': '💍 เครื่องประดับ',
+        'sports': '⚽ กีฬา',
+        'toys': '🧸 ของเล่น',
+        'others': '📦 อื่นๆ'
+    };
+
+    document.querySelectorAll('.council-filters .chip').forEach(chip => {
+        const cat = chip.getAttribute('data-category');
+        if (cat && categoryNames[cat]) {
+            const count = categoryCounts[cat] || 0;
+            chip.innerText = `${categoryNames[cat]} (${count})`;
+        }
+    });
+}
+
+function updateCouncilTabCounts(categoryProducts) {
+    const pendingCount = categoryProducts.filter(p => p.status === 'pending').length;
+    const revisionCount = categoryProducts.filter(p => p.status === 'revision').length;
+    const approvedCount = categoryProducts.filter(p => p.status === 'approved' || p.status === 'sold').length;
+
+    const pendingTabBtn = document.querySelector('.council-tabs .tab[data-tab="pending"]');
+    const revisionTabBtn = document.querySelector('.council-tabs .tab[data-tab="revision"]');
+    const approvedTabBtn = document.querySelector('.council-tabs .tab[data-tab="approved"]');
+
+    if (pendingTabBtn) {
+        pendingTabBtn.innerHTML = `<span class="material-icons-round">pending_actions</span> รอตรวจสอบ <span class="badge" id="pendingBadge">${pendingCount}</span>`;
+        const badge = pendingTabBtn.querySelector('.badge');
+        if (badge) badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
     }
 
+    if (revisionTabBtn) {
+        revisionTabBtn.innerHTML = `<span class="material-icons-round">edit_note</span> ส่งแก้ไข (${revisionCount})`;
+    }
+
+    if (approvedTabBtn) {
+        approvedTabBtn.innerHTML = `<span class="material-icons-round">check_circle</span> ผ่านแล้ว (${approvedCount})`;
+    }
+}
+
+function renderCouncilProducts() {
+    const container = document.getElementById('councilProducts');
+    if (!container) return;
+    
+    // Category-filtered pool
+    const activeCategory = state.currentCategoryCouncil || 'all';
+    const categoryProducts = activeCategory === 'all' 
+        ? state.products 
+        : state.products.filter(p => p.category === activeCategory);
+
+    // Update Category-aware Stat Cards
+    const pendingCount = categoryProducts.filter(p => p.status === 'pending').length;
+    const approvedCount = categoryProducts.filter(p => p.status === 'approved' || p.status === 'sold').length;
+    
+    const statPendingEl = document.getElementById('statPending');
+    const statApprovedEl = document.getElementById('statApproved');
+    if (statPendingEl) statPendingEl.innerText = pendingCount;
+    if (statApprovedEl) statApprovedEl.innerText = approvedCount;
+
+    // Update Category Chips & Tab Counts
+    updateCouncilCategoryChipCounts();
+    updateCouncilTabCounts(categoryProducts);
+
+    let productsToShow = categoryProducts.filter(p => p.status === state.currentTab);
+
     if (productsToShow.length === 0) {
+        const tabLabel = state.currentTab === 'pending' ? 'รอตรวจสอบ' : state.currentTab === 'revision' ? 'ส่งแก้ไข' : 'ผ่านแล้ว';
         container.innerHTML = `
             <div class="empty-state">
                 <span class="material-icons-round">fact_check</span>
-                <h3>ไม่มีสินค้าในหมวดหมู่นี้</h3>
+                <h3>ไม่มีสินค้าในสถานะ "${tabLabel}" สำหรับหมวดหมู่นี้</h3>
             </div>
         `;
         return;
@@ -1786,18 +1847,53 @@ function filterByCategory(category, pageContext = 'market') {
     }
 }
 
+function updateCategoryChipCounts() {
+    const baseAvailable = state.products.filter(p => {
+        if (p.status !== 'approved' && p.status !== 'sold') return false;
+        const seller = findSeller(p.sellerId);
+        return !(seller && seller.suspended);
+    });
+
+    const categoryCounts = { all: baseAvailable.length };
+    baseAvailable.forEach(p => {
+        if (p.category) {
+            categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
+        }
+    });
+
+    const categoryNames = {
+        'all': 'ทั้งหมด',
+        'clothing': '👕 เสื้อผ้า',
+        'books': '📚 หนังสือ',
+        'electronics': '📱 อิเล็กทรอนิกส์',
+        'stationery': '✏️ เครื่องเขียน',
+        'accessories': '💍 เครื่องประดับ',
+        'sports': '⚽ กีฬา',
+        'toys': '🧸 ของเล่น',
+        'others': '📦 อื่นๆ'
+    };
+
+    document.querySelectorAll('.filters-bar .chip').forEach(chip => {
+        const cat = chip.getAttribute('data-category');
+        if (cat && categoryNames[cat]) {
+            const count = categoryCounts[cat] || 0;
+            chip.innerText = `${categoryNames[cat]} (${count})`;
+        }
+    });
+}
+
 function filterProducts() {
-    const search = document.getElementById('searchInput').value.toLowerCase();
-    const dateFilter = document.getElementById('dateFilter').value;
-    const priceFilter = document.getElementById('priceFilter').value;
-    const sortFilter = document.getElementById('sortFilter').value;
+    const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const dateFilter = document.getElementById('dateFilter')?.value || 'all';
+    const priceFilter = document.getElementById('priceFilter')?.value || 'all';
+    const sortFilter = document.getElementById('sortFilter')?.value || 'newest';
 
     let filtered = state.products.filter(p => {
         // Only show approved or sold in market
         if (p.status !== 'approved' && p.status !== 'sold') return false;
         
         // Hide products of suspended sellers
-        const seller = state.users.find(u => u.id === p.sellerId);
+        const seller = findSeller(p.sellerId);
         if (seller && seller.suspended) return false;
 
         // Date Filter
@@ -1837,23 +1933,24 @@ function filterProducts() {
         return new Date(b.createdAt) - new Date(a.createdAt); // newest
     });
 
+    // Update stats to match exact active filter criteria!
+    const activeAvailable = filtered.filter(p => p.status === 'approved');
+    const activeSellers = new Set(activeAvailable.map(p => {
+        const s = findSeller(p.sellerId);
+        return s ? s.id : p.sellerId;
+    }));
+
+    const statProductsEl = document.getElementById('statProducts');
+    const statSellersEl = document.getElementById('statSellers');
+
+    if (statProductsEl) statProductsEl.innerText = activeAvailable.length;
+    if (statSellersEl) statSellersEl.innerText = activeSellers.size;
+
     renderMarketList(filtered);
 }
 
 function renderMarket() {
-    // Update Stats: Count only products that are currently approved and available for sale (NOT sold)
-    const availableProducts = state.products.filter(p => {
-        if (p.status !== 'approved') return false;
-        const seller = findSeller(p.sellerId);
-        return !(seller && seller.suspended);
-    });
-
-    document.getElementById('statProducts').innerText = availableProducts.length;
-    
-    // Count unique active sellers who have at least 1 available product
-    const uniqueSellers = new Set(availableProducts.map(p => p.sellerId));
-    document.getElementById('statSellers').innerText = uniqueSellers.size;
-
+    updateCategoryChipCounts();
     filterProducts();
 }
 
