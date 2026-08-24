@@ -1597,7 +1597,7 @@ function renderDailyReport() {
         const seller = findSeller(p.sellerId);
         if (seller && seller.suspended) return false;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
-        return p.sellDates.includes(selectedDate);
+        return p.sellDates.some(d => String(d) === String(selectedDate));
     });
 
     // Sort products by seller name so items of the same seller are grouped together
@@ -1620,7 +1620,7 @@ function renderDailyReport() {
         const approvedProducts = sellerProducts.filter(p => {
             if (p.status !== 'approved') return false;
             if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
-            return p.sellDates.includes(selectedDate);
+            return p.sellDates.some(d => String(d) === String(selectedDate));
         });
 
         const pendingProducts = sellerProducts.filter(p => p.status === 'pending' || p.status === 'revision');
@@ -1694,7 +1694,7 @@ function renderDailyReport() {
                                     <td style="color:var(--text-muted); text-decoration:line-through;">฿${formatPrice(p.originalPrice || p.price)}</td>
                                 </tr>
                             `;
-                        }).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">ไม่มีรายการสินค้าอนุมัติในวันนี้</td></tr>`}
+                        }).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">ไม่มีรายการสินค้าอนุมัติในวันที่ ${selectedDate} ส.ค.</td></tr>`}
                     </tbody>
                 </table>
             </div>
@@ -1719,7 +1719,7 @@ function renderDailyReport() {
                             <th>ระดับชั้น</th>
                             <th>รหัสโต๊ะ</th>
                             <th style="text-align:center;">สินค้าทั้งหมด</th>
-                            <th style="text-align:center;">ผ่านอนุมัติ</th>
+                            <th style="text-align:center;">ผ่านอนุมัติ (${selectedDate} ส.ค.)</th>
                             <th>สถานะการลงขาย</th>
                         </tr>
                     </thead>
@@ -1747,7 +1747,7 @@ function copyReportTable() {
     let products = state.products.filter(p => {
         if (p.status !== 'approved' && p.status !== 'sold') return false;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
-        return p.sellDates.includes(selectedDate);
+        return p.sellDates.some(d => String(d) === String(selectedDate));
     });
 
     products.sort((a, b) => {
@@ -1803,7 +1803,7 @@ function copySellerStatusTable() {
         const approvedProducts = sellerProducts.filter(p => {
             if (p.status !== 'approved') return false;
             if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
-            return p.sellDates.includes(selectedDate);
+            return p.sellDates.some(d => String(d) === String(selectedDate));
         });
 
         const pendingProducts = sellerProducts.filter(p => p.status === 'pending' || p.status === 'revision');
@@ -1837,21 +1837,46 @@ function filterByCategory(category, pageContext = 'market') {
     if (pageContext === 'market') {
         state.currentCategory = category;
         document.querySelectorAll('.filters-bar .chip').forEach(c => c.classList.remove('active'));
-        document.querySelector(`.filters-bar .chip[data-category="${category}"]`).classList.add('active');
+        document.querySelector(`.filters-bar .chip[data-category="${category}"]`)?.classList.add('active');
         filterProducts();
     } else if (pageContext === 'council') {
         state.currentCategoryCouncil = category;
         document.querySelectorAll('.council-filters .chip').forEach(c => c.classList.remove('active'));
-        document.querySelector(`.council-filters .chip[data-category="${category}"]`).classList.add('active');
+        document.querySelector(`.council-filters .chip[data-category="${category}"]`)?.classList.add('active');
         renderCouncilProducts();
     }
 }
 
 function updateCategoryChipCounts() {
+    const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const dateFilter = document.getElementById('dateFilter')?.value || 'all';
+    const priceFilter = document.getElementById('priceFilter')?.value || 'all';
+
     const baseAvailable = state.products.filter(p => {
         if (p.status !== 'approved' && p.status !== 'sold') return false;
         const seller = findSeller(p.sellerId);
-        return !(seller && seller.suspended);
+        if (seller && seller.suspended) return false;
+
+        // Date Filter
+        if (dateFilter !== 'all') {
+            if (!p.sellDates || !Array.isArray(p.sellDates)) return false;
+            if (!p.sellDates.some(d => String(d) === String(dateFilter))) return false;
+        }
+
+        // Search Filter
+        if (search && !p.name.toLowerCase().includes(search)) return false;
+
+        // Price Filter
+        if (priceFilter !== 'all') {
+            const [min, max] = priceFilter.split('-');
+            if (max) {
+                if (p.price < parseInt(min) || p.price > parseInt(max)) return false;
+            } else {
+                if (p.price < parseInt(min)) return false;
+            }
+        }
+
+        return true;
     });
 
     const categoryCounts = { all: baseAvailable.length };
@@ -1896,11 +1921,10 @@ function filterProducts() {
         const seller = findSeller(p.sellerId);
         if (seller && seller.suspended) return false;
 
-        // Date Filter
+        // Date Filter (String loose comparison)
         if (dateFilter !== 'all') {
-            if (p.sellDates && Array.isArray(p.sellDates) && !p.sellDates.includes(dateFilter)) {
-                return false;
-            }
+            if (!p.sellDates || !Array.isArray(p.sellDates)) return false;
+            if (!p.sellDates.some(d => String(d) === String(dateFilter))) return false;
         }
 
         // Category
@@ -1945,6 +1969,9 @@ function filterProducts() {
 
     if (statProductsEl) statProductsEl.innerText = activeAvailable.length;
     if (statSellersEl) statSellersEl.innerText = activeSellers.size;
+
+    // Update chip numbers for current filter
+    updateCategoryChipCounts();
 
     renderMarketList(filtered);
 }
