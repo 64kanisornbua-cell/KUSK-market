@@ -600,8 +600,32 @@ function findSeller(sellerId) {
         const uUser = String(u.username || '').trim().toLowerCase();
         return uName === cleanId || uUser === cleanId || uName.replace(/\s+/g, '') === cleanNoSpace || uUser.replace(/\s+/g, '') === cleanNoSpace;
     });
+    if (seller) return seller;
 
-    return seller;
+    // 3. Fallback: Search products for seller metadata auto-reconstruction!
+    const productWithSeller = state.products.find(p => {
+        if (!p) return false;
+        const pId = String(p.sellerId || '').trim().toLowerCase();
+        const pName = String(p.sellerName || '').trim().toLowerCase();
+        return pId === cleanId || pName === cleanId || pName.replace(/\s+/g, '') === cleanNoSpace;
+    });
+
+    if (productWithSeller) {
+        const reconstructed = {
+            id: productWithSeller.sellerId || cleanId,
+            name: productWithSeller.sellerName || productWithSeller.sellerId || 'ผู้ขายที่ไม่ระบุ',
+            username: productWithSeller.sellerName || '',
+            role: 'seller',
+            grade: productWithSeller.sellerGrade || '-',
+            tableId: productWithSeller.tableId || 'ยังไม่กำหนด',
+            suspended: false
+        };
+        // Auto-heal state.users map
+        state.users.push(reconstructed);
+        return reconstructed;
+    }
+
+    return null;
 }
 
 function getCategoryName(catId) {
@@ -616,6 +640,27 @@ function getCategoryName(catId) {
         'others': '📦 อื่นๆ'
     };
     return categories[catId] || 'อื่นๆ';
+}
+
+function isProductForDate(product, targetDate) {
+    if (!product) return false;
+    if (!targetDate || targetDate === 'all') return true;
+
+    const sellDates = product.sellDates;
+    if (!sellDates) return true;
+
+    const targetStr = String(targetDate).trim();
+
+    if (Array.isArray(sellDates)) {
+        if (sellDates.length === 0) return true;
+        return sellDates.some(d => String(d).trim() === targetStr);
+    }
+
+    if (typeof sellDates === 'string') {
+        return sellDates.split(/[\s,]+/).some(d => d.trim() === targetStr);
+    }
+
+    return true;
 }
 
 function getStatusBadge(status) {
@@ -1300,15 +1345,72 @@ function cancelApproval() {
 
 // --- Council Seller Management & Table ID Assignment ---
 
+function getAllSellers() {
+    const sellerMap = new Map();
+
+    // 1. Add all registered sellers from state.users
+    (state.users || []).forEach(u => {
+        if (!u || u.role === 'guest' || u.role === 'council') return;
+        const key = String(u.id || u.name).trim().toLowerCase();
+        sellerMap.set(key, {
+            id: u.id || key,
+            name: u.name || 'ผู้ขายที่ไม่ระบุ',
+            username: u.username || u.name || '',
+            role: 'seller',
+            grade: u.grade || '-',
+            tableId: u.tableId || 'ยังไม่กำหนด',
+            suspended: !!u.suspended,
+            image: u.image || ''
+        });
+    });
+
+    // 2. Scan all products to discover missing sellers (Auto-healing missing shops!)
+    (state.products || []).forEach(p => {
+        if (!p) return;
+        const sellerIdKey = String(p.sellerId || p.sellerName || '').trim().toLowerCase();
+        if (!sellerIdKey) return;
+
+        const foundInMap = Array.from(sellerMap.values()).find(s => 
+            String(s.id).toLowerCase() === sellerIdKey || 
+            String(s.name).toLowerCase() === sellerIdKey || 
+            String(s.username).toLowerCase() === sellerIdKey
+        );
+
+        if (!foundInMap) {
+            const newSellerId = p.sellerId || 'U_' + Date.now();
+            const newSellerName = p.sellerName || p.sellerId || 'ผู้ขายที่ไม่ระบุ';
+            const newSellerGrade = p.sellerGrade || '-';
+            const newTableId = p.tableId || 'ยังไม่กำหนด';
+
+            const reconstructedUser = {
+                id: newSellerId,
+                name: newSellerName,
+                username: newSellerName,
+                role: 'seller',
+                grade: newSellerGrade,
+                tableId: newTableId,
+                suspended: false
+            };
+
+            state.users.push(reconstructedUser);
+            sellerMap.set(String(newSellerId).trim().toLowerCase(), reconstructedUser);
+        }
+    });
+
+    const result = Array.from(sellerMap.values());
+    result.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+    return result;
+}
+
 function renderCouncilSellers() {
     const container = document.getElementById('councilSellersList');
     if(!container) return;
 
     const query = (document.getElementById('sellerSearchInput')?.value || '').toLowerCase();
     
-    let sellers = state.users.filter(u => u.role === 'seller');
+    let sellers = getAllSellers();
     if (query) {
-        sellers = sellers.filter(s => s.name.toLowerCase().includes(query) || (s.tableId && s.tableId.toLowerCase().includes(query)));
+        sellers = sellers.filter(s => s.name.toLowerCase().includes(query) || (s.tableId && s.tableId.toLowerCase().includes(query)) || (s.username && s.username.toLowerCase().includes(query)));
     }
 
     if (sellers.length === 0) {
@@ -1589,13 +1691,14 @@ function renderDailyReport() {
     const container = document.getElementById('reportContainer');
     if (!container) return;
 
-    const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
+    const selectedDate = document.getElementById('reportDateSelect')?.value || 'all';
     
     // Only products approved for sale on this date (sold items and suspended sellers are excluded)
     let products = state.products.filter(p => {
         if (p.status !== 'approved') return false; 
         const seller = findSeller(p.sellerId);
         if (seller && seller.suspended) return false;
+        if (selectedDate === 'all') return true;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
         return p.sellDates.some(d => String(d) === String(selectedDate));
     });
@@ -1613,9 +1716,8 @@ function renderDailyReport() {
         totalPieces += (p.quantityType === 'multiple' ? (parseInt(p.quantity) || 1) : 1);
     });
 
-    // Generate Seller Status List
-    const allSellers = state.users.filter(u => u.role === 'seller' && !u.suspended);
-    allSellers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+    // Generate Seller Status List using getAllSellers() for 100% seller coverage!
+    const allSellers = getAllSellers().filter(u => !u.suspended);
 
     const sellerStatusList = allSellers.map((s) => {
         const sellerProducts = state.products.filter(p => {
@@ -1625,6 +1727,7 @@ function renderDailyReport() {
 
         const approvedProducts = sellerProducts.filter(p => {
             if (p.status !== 'approved') return false;
+            if (selectedDate === 'all') return true;
             if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
             return p.sellDates.some(d => String(d) === String(selectedDate));
         });
@@ -1649,11 +1752,13 @@ function renderDailyReport() {
         };
     });
 
+    const dateTitleText = selectedDate === 'all' ? 'ทุกวัน (24-26 ส.ค. 2569)' : `ประจำวันที่ ${selectedDate} สิงหาคม 2569`;
+
     if (products.length === 0 && sellerStatusList.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <span class="material-icons-round">find_in_page</span>
-                <h3>ไม่มีรายการสินค้าที่จะวางขายในวันที่ ${selectedDate} สิงหาคม 2569</h3>
+                <h3>ไม่มีรายการสินค้าที่จะวางขายสำหรับ ${dateTitleText}</h3>
             </div>
         `;
         return;
@@ -1664,7 +1769,7 @@ function renderDailyReport() {
             <!-- 1. Daily Products Table -->
             <div style="text-align:center; margin-bottom:1.25rem;">
                 <h2 style="font-size:1.4rem; font-weight:700;">📦 ตารางสินค้า ตลาดนัด KUSK Market</h2>
-                <p style="color:var(--text-secondary);">ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวมทั้งหมด <strong>${products.length} รายการ</strong> / <strong>${totalPieces} ชิ้น</strong>)</p>
+                <p style="color:var(--text-secondary);">${dateTitleText} (รวมทั้งหมด <strong>${products.length} รายการ</strong> / <strong>${totalPieces} ชิ้น</strong>)</p>
             </div>
             
             <div style="overflow-x:auto; margin-bottom:2.5rem;">
@@ -1700,7 +1805,7 @@ function renderDailyReport() {
                                     <td style="color:var(--text-muted); text-decoration:line-through;">฿${formatPrice(p.originalPrice || p.price)}</td>
                                 </tr>
                             `;
-                        }).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">ไม่มีรายการสินค้าอนุมัติในวันที่ ${selectedDate} ส.ค.</td></tr>`}
+                        }).join('') : `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">ไม่มีรายการสินค้าอนุมัติสำหรับ ${dateTitleText}</td></tr>`}
                     </tbody>
                 </table>
             </div>
@@ -1709,7 +1814,7 @@ function renderDailyReport() {
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:2.5rem; margin-bottom:1.25rem;">
                 <div>
                     <h2 style="font-size:1.3rem; font-weight:700;">🏪 ตารางสถานะการลงขายของผู้ขายทั้งหมด</h2>
-                    <p style="color:var(--text-secondary);">สรุปการนำเข้าสินค้าของผู้ขายทุกราย ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวม ${sellerStatusList.length} คน)</p>
+                    <p style="color:var(--text-secondary);">สรุปการนำเข้าสินค้าของผู้ขายทุกราย (${dateTitleText} - รวมผู้ขาย ${sellerStatusList.length} คน)</p>
                 </div>
                 <button class="btn btn-outline print-hide" onclick="copySellerStatusTable()" style="padding:0.4rem 0.85rem; font-size:0.85rem;">
                     <span class="material-icons-round" style="font-size:16px;">content_copy</span> คัดลอกตารางผู้ขาย
@@ -1725,7 +1830,7 @@ function renderDailyReport() {
                             <th>ระดับชั้น</th>
                             <th>รหัสโต๊ะ</th>
                             <th style="text-align:center;">สินค้าทั้งหมด</th>
-                            <th style="text-align:center;">ผ่านอนุมัติ (${selectedDate} ส.ค.)</th>
+                            <th style="text-align:center;">ผ่านอนุมัติ (${selectedDate === 'all' ? 'ทุกวัน' : selectedDate + ' ส.ค.'})</th>
                             <th>สถานะการลงขาย</th>
                         </tr>
                     </thead>
@@ -1749,9 +1854,10 @@ function renderDailyReport() {
 }
 
 function copyReportTable() {
-    const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
+    const selectedDate = document.getElementById('reportDateSelect')?.value || 'all';
     let products = state.products.filter(p => {
         if (p.status !== 'approved' && p.status !== 'sold') return false;
+        if (selectedDate === 'all') return true;
         if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
         return p.sellDates.some(d => String(d) === String(selectedDate));
     });
@@ -1772,7 +1878,8 @@ function copyReportTable() {
         totalPieces += (p.quantityType === 'multiple' ? (parseInt(p.quantity) || 1) : 1);
     });
 
-    let text = `ตารางสินค้า KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569 (รวมทั้งหมด ${products.length} รายการ / ${totalPieces} ชิ้น)\n`;
+    const dateTitleText = selectedDate === 'all' ? 'ทุกวัน (24-26 ส.ค. 2569)' : `ประจำวันที่ ${selectedDate} สิงหาคม 2569`;
+    let text = `ตารางสินค้า KUSK Market ${dateTitleText} (รวมทั้งหมด ${products.length} รายการ / ${totalPieces} ชิ้น)\n`;
     text += `ลำดับ\tชื่อสินค้า\tจำนวน\tชื่อคนขาย\tระดับชั้น\tรหัสโต๊ะ\tราคาขายจริง (บาท)\tราคาเดิม (บาท)\n`;
 
     products.forEach((p, index) => {
@@ -1793,16 +1900,16 @@ function copyReportTable() {
 }
 
 function copySellerStatusTable() {
-    const selectedDate = document.getElementById('reportDateSelect')?.value || '24';
-    const allSellers = state.users.filter(u => u.role === 'seller' && !u.suspended);
-    allSellers.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'th'));
+    const selectedDate = document.getElementById('reportDateSelect')?.value || 'all';
+    const allSellers = getAllSellers().filter(u => !u.suspended);
 
     if (allSellers.length === 0) {
         showToast('ไม่มีข้อมูลผู้ขายสำหรับคัดลอก', 'error');
         return;
     }
 
-    let text = `ตารางสถานะการลงขายของผู้ขาย KUSK Market ประจำวันที่ ${selectedDate} สิงหาคม 2569\n`;
+    const dateTitleText = selectedDate === 'all' ? 'ทุกวัน (24-26 ส.ค. 2569)' : `ประจำวันที่ ${selectedDate} สิงหาคม 2569`;
+    let text = `ตารางสถานะการลงขายของผู้ขาย KUSK Market ${dateTitleText}\n`;
     text += `ลำดับ\tชื่อผู้ขาย\tระดับชั้น\tรหัสโต๊ะ\tสินค้าทั้งหมด\tผ่านอนุมัติ\tสถานะการลงขาย\n`;
 
     allSellers.forEach((s, index) => {
@@ -1813,6 +1920,7 @@ function copySellerStatusTable() {
 
         const approvedProducts = sellerProducts.filter(p => {
             if (p.status !== 'approved') return false;
+            if (selectedDate === 'all') return true;
             if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
             return p.sellDates.some(d => String(d) === String(selectedDate));
         });
@@ -1868,10 +1976,9 @@ function updateCategoryChipCounts() {
         const seller = findSeller(p.sellerId);
         if (seller && seller.suspended) return false;
 
-        // Date Filter
+        // Date Filter (Unified helper)
         if (dateFilter !== 'all') {
-            if (!p.sellDates || !Array.isArray(p.sellDates)) return false;
-            if (!p.sellDates.some(d => String(d) === String(dateFilter))) return false;
+            if (!isProductForDate(p, dateFilter)) return false;
         }
 
         // Search Filter
@@ -1932,10 +2039,9 @@ function filterProducts() {
         const seller = findSeller(p.sellerId);
         if (seller && seller.suspended) return false;
 
-        // Date Filter (String loose comparison)
+        // Date Filter (Unified helper)
         if (dateFilter !== 'all') {
-            if (!p.sellDates || !Array.isArray(p.sellDates)) return false;
-            if (!p.sellDates.some(d => String(d) === String(dateFilter))) return false;
+            if (!isProductForDate(p, dateFilter)) return false;
         }
 
         // Category

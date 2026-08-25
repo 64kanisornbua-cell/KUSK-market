@@ -404,9 +404,10 @@
                     <div class="form-group" style="margin-bottom:0; max-width:250px;">
                         <label>เลือกวันที่ขาย:</label>
                         <select id="reportDateSelect" onchange="renderDailyReport()">
-                            <option value="24">24 สิงหาคม 2569</option>
-                            <option value="25">25 สิงหาคม 2569</option>
-                            <option value="26">26 สิงหาคม 2569</option>
+                            <option value="all" selected>ทุกวัน (รวมทั้ง 3 วัน 24-26 ส.ค.)</option>
+                            <option value="24">เฉพาะวันที่ 24 สิงหาคม 2569</option>
+                            <option value="25">เฉพาะวันที่ 25 สิงหาคม 2569</option>
+                            <option value="26">เฉพาะวันที่ 26 สิงหาคม 2569</option>
                         </select>
                     </div>
                     <div style="display:flex; gap:0.5rem; margin-top: auto; flex-wrap:wrap;">
@@ -714,6 +715,6 @@
         <span id="toastMessage"></span>
     </div>
 
-    <script src="app.js?v=23.0"></script>
+    <script src="app.js?v=25.0"></script>
 </body>
 </html>
