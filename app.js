@@ -1430,87 +1430,66 @@ function renderCouncilSellers() {
                     <th>ผู้ขาย (ชื่อ-นามสกุล)</th>
                     <th>ระดับชั้น</th>
                     <th>รหัสโต๊ะ (สภากำหนด)</th>
-                    <th>สถานะการลงขาย</th>
                     <th>สถานะบัญชี</th>
                     <th>การจัดการ</th>
                 </tr>
             </thead>
             <tbody>
-                ${sellers.map(s => {
-                    const sellerProducts = state.products.filter(p => {
-                        const matchingSeller = findSeller(p.sellerId);
-                        return (matchingSeller && matchingSeller.id === s.id) || p.sellerId === s.id || p.sellerName === s.name;
-                    });
-
-                    const approvedProducts = sellerProducts.filter(p => p.status === 'approved');
-                    const pendingProducts = sellerProducts.filter(p => p.status === 'pending' || p.status === 'revision');
-
-                    let statusBadge = '';
-                    if (approvedProducts.length > 0) {
-                        statusBadge = `<span style="background:rgba(16,185,129,0.12); color:#059669; font-weight:600; padding:0.2rem 0.55rem; border-radius:12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.2rem;"><span class="material-icons-round" style="font-size:14px;">check_circle</span> มีสินค้าขายอยู่ (${approvedProducts.length} ชิ้น)</span>`;
-                    } else if (pendingProducts.length > 0) {
-                        statusBadge = `<span style="background:rgba(245,158,11,0.12); color:#d97706; font-weight:600; padding:0.2rem 0.55rem; border-radius:12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.2rem;"><span class="material-icons-round" style="font-size:14px;">hourglass_empty</span> รอตรวจ (${pendingProducts.length} ชิ้น)</span>`;
-                    } else {
-                        statusBadge = `<span style="background:rgba(239,68,68,0.1); color:#dc2626; font-weight:500; padding:0.2rem 0.55rem; border-radius:12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:0.2rem;"><span class="material-icons-round" style="font-size:14px;">highlight_off</span> ยังไม่มีสินค้าขาย</span>`;
-                    }
-
-                    return `
-                        <tr>
-                            <td style="display:flex; align-items:center; gap:0.5rem;">
-                                ${s.image ? 
-                                    `<img src="${s.image}" style="width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0;">` : 
-                                    `<div style="width:34px; height:34px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                        <span class="material-icons-round" style="font-size:18px">person</span>
-                                    </div>`
-                                }
-                                <strong>${s.name}</strong>
-                            </td>
-                            <td>
-                                <select id="gradeSelect_${s.id}" class="table-input" style="padding:0.25rem 0.4rem; font-size:0.8rem; min-width:75px;" onchange="saveSellerGrade('${s.id}')">
-                                    <option value="ป.4" ${s.grade === 'ป.4' ? 'selected' : ''}>ป.4</option>
-                                    <option value="ป.5" ${s.grade === 'ป.5' ? 'selected' : ''}>ป.5</option>
-                                    <option value="ป.6" ${s.grade === 'ป.6' ? 'selected' : ''}>ป.6</option>
-                                    <option value="ม.1" ${s.grade === 'ม.1' ? 'selected' : ''}>ม.1</option>
-                                    <option value="ม.2" ${s.grade === 'ม.2' ? 'selected' : ''}>ม.2</option>
-                                    <option value="ม.3" ${s.grade === 'ม.3' ? 'selected' : ''}>ม.3</option>
-                                    <option value="ม.4" ${s.grade === 'ม.4' || !s.grade ? 'selected' : ''}>ม.4</option>
-                                    <option value="ม.5" ${s.grade === 'ม.5' ? 'selected' : ''}>ม.5</option>
-                                    <option value="ม.6" ${s.grade === 'ม.6' ? 'selected' : ''}>ม.6</option>
-                                </select>
-                            </td>
-                            <td>
-                                <div style="display:flex; gap:0.25rem;">
-                                    <input type="text" id="tableIdInput_${s.id}" value="${s.tableId || ''}" placeholder="เช่น T-01" class="table-input">
-                                    <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="saveSellerTableId('${s.id}')">
-                                        บันทึก
-                                    </button>
-                                </div>
-                            </td>
-                            <td>${statusBadge}</td>
-                            <td>
+                ${sellers.map(s => `
+                    <tr>
+                        <td style="display:flex; align-items:center; gap:0.5rem;">
+                            ${s.image ? 
+                                `<img src="${s.image}" style="width:34px; height:34px; border-radius:50%; object-fit:cover; flex-shrink:0;">` : 
+                                `<div style="width:34px; height:34px; border-radius:50%; background:rgba(79,70,229,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                    <span class="material-icons-round" style="font-size:18px">person</span>
+                                </div>`
+                            }
+                            <strong>${s.name}</strong>
+                        </td>
+                        <td>
+                            <select id="gradeSelect_${s.id}" class="table-input" style="padding:0.25rem 0.4rem; font-size:0.8rem; min-width:75px;" onchange="saveSellerGrade('${s.id}')">
+                                <option value="ป.4" ${s.grade === 'ป.4' ? 'selected' : ''}>ป.4</option>
+                                <option value="ป.5" ${s.grade === 'ป.5' ? 'selected' : ''}>ป.5</option>
+                                <option value="ป.6" ${s.grade === 'ป.6' ? 'selected' : ''}>ป.6</option>
+                                <option value="ม.1" ${s.grade === 'ม.1' ? 'selected' : ''}>ม.1</option>
+                                <option value="ม.2" ${s.grade === 'ม.2' ? 'selected' : ''}>ม.2</option>
+                                <option value="ม.3" ${s.grade === 'ม.3' ? 'selected' : ''}>ม.3</option>
+                                <option value="ม.4" ${s.grade === 'ม.4' || !s.grade ? 'selected' : ''}>ม.4</option>
+                                <option value="ม.5" ${s.grade === 'ม.5' ? 'selected' : ''}>ม.5</option>
+                                <option value="ม.6" ${s.grade === 'ม.6' ? 'selected' : ''}>ม.6</option>
+                            </select>
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:0.25rem;">
+                                <input type="text" id="tableIdInput_${s.id}" value="${s.tableId || ''}" placeholder="เช่น T-01" class="table-input">
+                                <button class="btn btn-outline" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="saveSellerTableId('${s.id}')">
+                                    บันทึก
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            ${s.suspended ? 
+                                `<span class="status-badge-suspended"><span class="material-icons-round" style="font-size:14px">block</span>ถูกระงับ</span>` : 
+                                `<span class="status-badge-active"><span class="material-icons-round" style="font-size:14px">check_circle</span>ปกติ</span>`
+                            }
+                        </td>
+                        <td style="white-space:nowrap;">
+                            <div style="display:flex; gap:0.35rem; align-items:center;">
                                 ${s.suspended ? 
-                                    `<span class="status-badge-suspended"><span class="material-icons-round" style="font-size:14px">block</span>ถูกระงับ</span>` : 
-                                    `<span class="status-badge-active"><span class="material-icons-round" style="font-size:14px">check_circle</span>ปกติ</span>`
+                                    `<button class="btn btn-success" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="toggleSuspendSeller('${s.id}', false)">
+                                        <span class="material-icons-round" style="font-size:15px">check</span> ปลดระงับ
+                                     </button>` : 
+                                    `<button class="btn btn-warning" style="padding:0.35rem 0.65rem; font-size:0.8rem; background:var(--warning); border-color:var(--warning); color:white;" onclick="toggleSuspendSeller('${s.id}', true)">
+                                        <span class="material-icons-round" style="font-size:15px">block</span> ระงับบัญชี
+                                     </button>`
                                 }
-                            </td>
-                            <td style="white-space:nowrap;">
-                                <div style="display:flex; gap:0.35rem; align-items:center;">
-                                    ${s.suspended ? 
-                                        `<button class="btn btn-success" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="toggleSuspendSeller('${s.id}', false)">
-                                            <span class="material-icons-round" style="font-size:15px">check</span> ปลดระงับ
-                                         </button>` : 
-                                        `<button class="btn btn-warning" style="padding:0.35rem 0.65rem; font-size:0.8rem; background:var(--warning); border-color:var(--warning); color:white;" onclick="toggleSuspendSeller('${s.id}', true)">
-                                            <span class="material-icons-round" style="font-size:15px">block</span> ระงับบัญชี
-                                         </button>`
-                                    }
-                                    <button class="btn btn-danger" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="deleteSellerAccount('${s.id}', '${s.name}')">
-                                        <span class="material-icons-round" style="font-size:15px">delete</span> ลบบัญชี
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                }).join('')}
+                                <button class="btn btn-danger" style="padding:0.35rem 0.65rem; font-size:0.8rem;" onclick="deleteSellerAccount('${s.id}', '${s.name}')">
+                                    <span class="material-icons-round" style="font-size:15px">delete</span> ลบบัญชี
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('')}
             </tbody>
         </table>
     `;
@@ -1901,6 +1880,8 @@ function copyReportTable() {
 
 function copySellerStatusTable() {
     const selectedDate = document.getElementById('reportDateSelect')?.value || 'all';
+    
+    // Strictly exclude suspended sellers!
     const allSellers = getAllSellers().filter(u => !u.suspended);
 
     if (allSellers.length === 0) {
@@ -1909,8 +1890,8 @@ function copySellerStatusTable() {
     }
 
     const dateTitleText = selectedDate === 'all' ? 'ทุกวัน (24-26 ส.ค. 2569)' : `ประจำวันที่ ${selectedDate} สิงหาคม 2569`;
-    let text = `ตารางสถานะการลงขายของผู้ขาย KUSK Market ${dateTitleText}\n`;
-    text += `ลำดับ\tชื่อผู้ขาย\tระดับชั้น\tรหัสโต๊ะ\tสินค้าทั้งหมด\tผ่านอนุมัติ\tสถานะการลงขาย\n`;
+    let text = `ตารางข้อมูลผู้ขาย KUSK Market ${dateTitleText}\n`;
+    text += `ลำดับ\tชื่อผู้ขาย\tระดับชั้น\tรหัสโต๊ะ\tรายการสินค้า\n`;
 
     allSellers.forEach((s, index) => {
         const sellerProducts = state.products.filter(p => {
@@ -1920,25 +1901,12 @@ function copySellerStatusTable() {
 
         const approvedProducts = sellerProducts.filter(p => {
             if (p.status !== 'approved') return false;
-            if (selectedDate === 'all') return true;
-            if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
-            return p.sellDates.some(d => String(d) === String(selectedDate));
+            return isProductForDate(p, selectedDate);
         });
-
-        const pendingProducts = sellerProducts.filter(p => p.status === 'pending' || p.status === 'revision');
-
-        let statusText = '';
-        if (approvedProducts.length > 0) {
-            statusText = `มีสินค้าขายอยู่ (${approvedProducts.length} รายการ)`;
-        } else if (pendingProducts.length > 0) {
-            statusText = `รอตรวจสินค้า (${pendingProducts.length} รายการ)`;
-        } else {
-            statusText = `ยังไม่มีสินค้าขาย`;
-        }
 
         const tableIdText = s.tableId || 'ยังไม่กำหนด';
         const gradeText = s.grade || '-';
-        text += `${index + 1}\t${s.name}\t${gradeText}\t${tableIdText}\t${sellerProducts.length}\t${approvedProducts.length}\t${statusText}\n`;
+        text += `${index + 1}\t${s.name}\t${gradeText}\t${tableIdText}\t${approvedProducts.length}\n`;
     });
 
     navigator.clipboard.writeText(text).then(() => {
