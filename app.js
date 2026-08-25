@@ -1835,10 +1835,10 @@ function renderDailyReport() {
 function copyReportTable() {
     const selectedDate = document.getElementById('reportDateSelect')?.value || 'all';
     let products = state.products.filter(p => {
-        if (p.status !== 'approved' && p.status !== 'sold') return false;
-        if (selectedDate === 'all') return true;
-        if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
-        return p.sellDates.some(d => String(d) === String(selectedDate));
+        if (p.status !== 'approved') return false;
+        const seller = findSeller(p.sellerId);
+        if (seller && seller.suspended) return false;
+        return isProductForDate(p, selectedDate);
     });
 
     products.sort((a, b) => {
