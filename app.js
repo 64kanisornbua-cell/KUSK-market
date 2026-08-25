@@ -1104,7 +1104,7 @@ function updateCouncilCategoryChipCounts() {
 function updateCouncilTabCounts(categoryProducts) {
     const pendingCount = categoryProducts.filter(p => p.status === 'pending').length;
     const revisionCount = categoryProducts.filter(p => p.status === 'revision').length;
-    const approvedCount = categoryProducts.filter(p => p.status === 'approved' || p.status === 'sold').length;
+    const approvedCount = categoryProducts.filter(p => p.status === 'approved').length;
 
     const pendingTabBtn = document.querySelector('.council-tabs .tab[data-tab="pending"]');
     const revisionTabBtn = document.querySelector('.council-tabs .tab[data-tab="revision"]');
@@ -1137,7 +1137,7 @@ function renderCouncilProducts() {
 
     // Update Category-aware Stat Cards
     const pendingCount = categoryProducts.filter(p => p.status === 'pending').length;
-    const approvedCount = categoryProducts.filter(p => p.status === 'approved' || p.status === 'sold').length;
+    const approvedCount = categoryProducts.filter(p => p.status === 'approved').length;
     
     const statPendingEl = document.getElementById('statPending');
     const statApprovedEl = document.getElementById('statApproved');
@@ -1677,9 +1677,7 @@ function renderDailyReport() {
         if (p.status !== 'approved') return false; 
         const seller = findSeller(p.sellerId);
         if (seller && seller.suspended) return false;
-        if (selectedDate === 'all') return true;
-        if (!p.sellDates || !Array.isArray(p.sellDates)) return true;
-        return p.sellDates.some(d => String(d) === String(selectedDate));
+        return isProductForDate(p, selectedDate);
     });
 
     // Sort products by seller name so items of the same seller are grouped together
