@@ -1904,15 +1904,9 @@ function copySellerStatusTable() {
             return isProductForDate(p, selectedDate);
         });
 
-        // Calculate total physical pieces (จำนวนชิ้นสินค้ารวม) matching Product Table!
-        let totalPieces = 0;
-        approvedProducts.forEach(p => {
-            totalPieces += (p.quantityType === 'multiple' ? (parseInt(p.quantity) || 1) : 1);
-        });
-
         const tableIdText = s.tableId || 'ยังไม่กำหนด';
         const gradeText = s.grade || '-';
-        text += `${index + 1}\t${s.name}\t${gradeText}\t${tableIdText}\t${totalPieces}\n`;
+        text += `${index + 1}\t${s.name}\t${gradeText}\t${tableIdText}\t${approvedProducts.length}\n`;
     });
 
     navigator.clipboard.writeText(text).then(() => {
