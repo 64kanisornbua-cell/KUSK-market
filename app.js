@@ -1895,8 +1895,10 @@ function copySellerStatusTable() {
 
     allSellers.forEach((s, index) => {
         const sellerProducts = state.products.filter(p => {
-            const matchingSeller = findSeller(p.sellerId);
-            return (matchingSeller && matchingSeller.id === s.id) || p.sellerId === s.id || p.sellerName === s.name;
+            const matchingSeller = findSeller(p.sellerId || p.sellerName);
+            return (matchingSeller && (matchingSeller.id === s.id || String(matchingSeller.name).trim().toLowerCase() === String(s.name).trim().toLowerCase())) || 
+                   p.sellerId === s.id || 
+                   String(p.sellerName || '').trim().toLowerCase() === String(s.name).trim().toLowerCase();
         });
 
         const approvedProducts = sellerProducts.filter(p => {
@@ -1904,9 +1906,15 @@ function copySellerStatusTable() {
             return isProductForDate(p, selectedDate);
         });
 
+        // Calculate total physical pieces (จำนวนชิ้นสินค้ารวม) matching Product Table!
+        let totalPieces = 0;
+        approvedProducts.forEach(p => {
+            totalPieces += (p.quantityType === 'multiple' ? (parseInt(p.quantity) || 1) : 1);
+        });
+
         const tableIdText = s.tableId || 'ยังไม่กำหนด';
         const gradeText = s.grade || '-';
-        text += `${index + 1}\t${s.name}\t${gradeText}\t${tableIdText}\t${approvedProducts.length}\n`;
+        text += `${index + 1}\t${s.name}\t${gradeText}\t${tableIdText}\t${totalPieces}\n`;
     });
 
     navigator.clipboard.writeText(text).then(() => {
